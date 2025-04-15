@@ -3,9 +3,10 @@ package database
 import (
 	"fmt"
 
+	"backend/configs"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // PostgreSQL driver
-	"github.com/yourusername/photoshare/configs"
 )
 
 // Connect establishes a connection to the database

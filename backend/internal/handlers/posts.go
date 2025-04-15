@@ -5,12 +5,13 @@ import (
 	"strings"
 	"time"
 
+	"backend/internal/models"
+	"backend/internal/services/compression"
+	"backend/internal/storage"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/yourusername/photoshare/internal/models"
-	"github.com/yourusername/photoshare/internal/services/compression"
-	"github.com/yourusername/photoshare/internal/storage"
 )
 
 // PostHandler handles post-related requests

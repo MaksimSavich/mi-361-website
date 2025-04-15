@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"backend/configs"
+	"backend/internal/models"
+
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/yourusername/photoshare/configs"
-	"github.com/yourusername/photoshare/internal/models"
 )
 
 // Claims represents the JWT claims

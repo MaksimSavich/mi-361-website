@@ -9,11 +9,12 @@ import (
 	"syscall"
 	"time"
 
+	"backend/configs"
+	"backend/internal/api"
+	"backend/internal/database"
+	"backend/internal/storage"
+
 	"github.com/joho/godotenv"
-	"github.com/yourusername/photoshare/configs"
-	"github.com/yourusername/photoshare/internal/api"
-	"github.com/yourusername/photoshare/internal/database"
-	"github.com/yourusername/photoshare/internal/storage"
 )
 
 func main() {

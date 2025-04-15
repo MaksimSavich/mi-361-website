@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strings"
 
+	"backend/internal/services/auth"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"github.com/yourusername/photoshare/internal/services/auth"
 )
 
 // AuthMiddleware enforces authentication for protected routes

@@ -4,10 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	"backend/internal/models"
+	"backend/internal/services/auth"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"github.com/yourusername/photoshare/internal/models"
-	"github.com/yourusername/photoshare/internal/services/auth"
 )
 
 // UserHandler handles user-related requests

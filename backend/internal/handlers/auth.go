@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/yourusername/photoshare/internal/models"
-	"github.com/yourusername/photoshare/internal/services/auth"
+	"backend/internal/models"
+	"backend/internal/services/auth"
 )
 
 // AuthHandler handles authentication-related requests
@@ -290,5 +290,4 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	}
 
 	// Return success
-	c.JSON(http.StatusOK, gin.H{"message": "All other sessions revoked successfully"})
-}
+	c.JSON(http.StatusOK, gin.H{"message": "All other sbackend

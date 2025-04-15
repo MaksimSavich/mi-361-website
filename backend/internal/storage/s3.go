@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"backend/configs"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
-	"github.com/yourusername/photoshare/configs"
 )
 
 // S3Client handles file operations with AWS S3

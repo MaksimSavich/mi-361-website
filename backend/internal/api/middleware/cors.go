@@ -1,9 +1,10 @@
 package middleware
 
 import (
+	"backend/configs"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/photoshare/configs"
 )
 
 // CorsMiddleware configures CORS for the API
