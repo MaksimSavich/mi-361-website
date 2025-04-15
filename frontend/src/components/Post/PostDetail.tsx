@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Post } from '../../types/Post';
+import { Comment } from '../../types/Comment'; // Add this import
 import CommentSection from './CommentSection';
 
 interface PostDetailProps {
@@ -58,7 +59,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
             <p>{post.caption}</p>
           </div>
           
-          <CommentSection postId={post.id} comments={post.comments} />
+          <CommentSection 
+            postId={post.id} 
+            comments={post.comments as Comment[]} // Add type assertion here
+          />
         </div>
       </div>
     </div>

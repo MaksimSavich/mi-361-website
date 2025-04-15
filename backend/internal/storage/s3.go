@@ -25,9 +25,9 @@ type S3Client struct {
 // NewS3Client creates a new S3 client
 func NewS3Client(config configs.S3Config) (*S3Client, error) {
 	// Create custom resolver if endpoint is provided
-	var endpointResolver aws.EndpointResolverWithOptions
+	var resolver aws.EndpointResolverWithOptions
 	if config.Endpoint != "" {
-		endpointResolver = aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		resolver = aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
 				URL:               config.Endpoint,
 				SigningRegion:     region,
@@ -39,7 +39,7 @@ func NewS3Client(config configs.S3Config) (*S3Client, error) {
 	// Configure AWS SDK
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(config.Region),
-		config.WithEndpointResolverWithOptions(endpointResolver),
+		config.WithEndpointResolverWithOptions(resolver),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.AccessKey,
 			config.SecretKey,
@@ -50,15 +50,15 @@ func NewS3Client(config configs.S3Config) (*S3Client, error) {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	// Create S3 client
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+	// Create S3 client with options
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		if config.UsePathStyle {
 			o.UsePathStyle = true
 		}
 	})
 
 	return &S3Client{
-		client: client,
+		client: s3Client,
 		bucket: config.Bucket,
 	}, nil
 }
@@ -100,9 +100,10 @@ func (s *S3Client) UploadFile(ctx context.Context, fileData []byte, fileName str
 // GetPublicURL returns a public URL for a file
 func (s *S3Client) GetPublicURL(s3Path string) string {
 	// If using a custom endpoint
-	if s.client.Options().EndpointResolver != nil {
+	endpoint := ""
+	if s3endpoint := s.client.Options().EndpointResolver; s3endpoint != nil {
 		// You would need to adapt this based on your actual endpoint configuration
-		endpoint := fmt.Sprintf("https://%s/%s/%s", "your-s3-endpoint", s.bucket, url.PathEscape(s3Path))
+		endpoint = fmt.Sprintf("https://%s.%s/%s", s.bucket, "your-s3-endpoint", url.PathEscape(s3Path))
 		return endpoint
 	}
 
