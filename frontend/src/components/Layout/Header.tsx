@@ -27,7 +27,7 @@ const Header: React.FC = () => {
         <Link to="/" className={`text-xl font-bold ${
           theme === 'dark' ? 'text-white' : 'text-white'
         }`}>
-          PhotoShare
+          Spartan Net
         </Link>
         
         <div className="flex items-center space-x-4">

@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strconv"
@@ -38,6 +39,10 @@ type S3Config struct {
 	Bucket       string
 	Endpoint     string
 	UsePathStyle bool
+}
+
+func (s S3Config) LoadDefaultConfig(context context.Context, param any, param3 any, param4 any) (any, any) {
+	panic("unimplemented")
 }
 
 // JWTConfig holds JWT configuration
@@ -91,7 +96,7 @@ func LoadConfig() (*Config, error) {
 
 	jwtExpirationMin, err := strconv.Atoi(os.Getenv("JWT_EXPIRATION_MIN"))
 	if err != nil {
-		jwtExpirationMin = 60 * 24 // Default 24 hours
+		jwtExpirationMin = 60 * 24 * 7 // 7 days
 	}
 
 	return &Config{

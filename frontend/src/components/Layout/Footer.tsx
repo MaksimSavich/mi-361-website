@@ -17,7 +17,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className={`text-lg font-semibold mb-4 ${
               theme === 'dark' ? 'text-white' : 'text-gray-800'
-            }`}>PhotoShare</h3>
+            }`}>Spartan Net</h3>
             <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
               Share your photos and videos with friends and the world.
             </p>
@@ -64,7 +64,7 @@ const Footer: React.FC = () => {
               theme === 'dark' ? 'text-white' : 'text-gray-800'
             }`}>Contact</h3>
             <p className={`mb-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-              Email: info@photoshare.com
+              Email: info@spartannet.com
             </p>
             <div className="flex space-x-4">
               <a href="#" className={`${
@@ -88,7 +88,7 @@ const Footer: React.FC = () => {
         <div className={`border-t mt-8 pt-6 text-center ${
           theme === 'dark' ? 'border-gray-800 text-gray-500' : 'border-gray-200 text-gray-600'
         }`}>
-          <p>&copy; {currentYear} PhotoShare. All rights reserved.</p>
+          <p>&copy; {currentYear} Spartan Net. All rights reserved.</p>
         </div>
       </div>
     </footer>
