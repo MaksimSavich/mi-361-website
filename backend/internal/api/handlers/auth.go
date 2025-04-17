@@ -3,12 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"os"
 	"time"
 
 	"backend/internal/models"
 	"backend/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -62,16 +64,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	sessionID := uuid.New().String()
 	userAgent := c.GetHeader("User-Agent")
 	clientIP := c.ClientIP()
-	expiresAt := time.Now().Add(time.Duration(24*7) * time.Hour) // 1 week
-
-	_, err = h.db.Exec(
-		"INSERT INTO sessions (id, user_id, token, device, ip_address, last_active, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-		sessionID, user.ID, "", userAgent, clientIP, time.Now(), expiresAt,
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
-		return
-	}
+	now := time.Now()
+	expiresAt := now.Add(time.Duration(24*7) * time.Hour) // 1 week
 
 	// Generate JWT token
 	token, _, err := h.jwtService.GenerateToken(&user, sessionID)
@@ -80,21 +74,41 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Update session with token
-	_, err = h.db.Exec("UPDATE sessions SET token = $1 WHERE id = $2", token, sessionID)
+	// Insert session with all required fields
+	_, err = h.db.Exec(
+		`INSERT INTO sessions (id, user_id, token, device, ip_address, last_active, expires_at, created_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		sessionID, user.ID, token, userAgent, clientIP, now, expiresAt, now,
+	)
 	if err != nil {
-		// Log error but continue
-		// logger.Error("Failed to update session token", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
 	}
 
 	// Create user response without sensitive information
+	// Handle NULL fields with proper default values
+	name := ""
+	if user.Name.Valid {
+		name = user.Name.String
+	}
+
+	phoneNumber := ""
+	if user.PhoneNumber.Valid {
+		phoneNumber = user.PhoneNumber.String
+	}
+
+	profilePicture := ""
+	if user.ProfilePicture.Valid {
+		profilePicture = user.ProfilePicture.String
+	}
+
 	userResponse := models.UserResponse{
 		ID:             user.ID,
 		Username:       user.Username,
 		Email:          user.Email,
-		Name:           user.Name,
-		PhoneNumber:    user.PhoneNumber,
-		ProfilePicture: user.ProfilePicture,
+		Name:           name,
+		PhoneNumber:    phoneNumber,
+		ProfilePicture: profilePicture,
 		CreatedAt:      user.CreatedAt,
 	}
 
@@ -292,4 +306,26 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 
 	// Return success
 	c.JSON(http.StatusOK, gin.H{"message": "All other sessions revoked successfully"})
+}
+
+// generateSimpleToken creates a JWT token without using sessions
+func generateSimpleToken(userID string) (string, error) {
+	// Create claims with just the user ID
+	claims := jwt.MapClaims{
+		"userId": userID,
+		"exp":    time.Now().Add(time.Hour * 24 * 7).Unix(), // 1 week
+		"iat":    time.Now().Unix(),
+	}
+
+	// Create token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Get JWT secret from environment
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "default_secret_for_development" // Fallback for development
+	}
+
+	// Sign token
+	return token.SignedString([]byte(jwtSecret))
 }

@@ -1,20 +1,21 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 )
 
 // User represents a user in the system
 type User struct {
-	ID             string    `json:"id" db:"id"`
-	Username       string    `json:"username" db:"username"`
-	Email          string    `json:"email" db:"email"`
-	PasswordHash   string    `json:"-" db:"password_hash"`
-	Name           string    `json:"name,omitempty" db:"name"`
-	PhoneNumber    string    `json:"phoneNumber,omitempty" db:"phone_number"`
-	ProfilePicture string    `json:"profilePicture,omitempty" db:"profile_picture"`
-	CreatedAt      time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt      time.Time `json:"updatedAt" db:"updated_at"`
+	ID             string         `json:"id" db:"id"`
+	Username       string         `json:"username" db:"username"`
+	Email          string         `json:"email" db:"email"`
+	PasswordHash   string         `json:"-" db:"password_hash"`
+	Name           sql.NullString `json:"name,omitempty" db:"name"`
+	PhoneNumber    sql.NullString `json:"phoneNumber,omitempty" db:"phone_number"`
+	ProfilePicture sql.NullString `json:"profilePicture,omitempty" db:"profile_picture"`
+	CreatedAt      time.Time      `json:"createdAt" db:"created_at"`
+	UpdatedAt      time.Time      `json:"updatedAt" db:"updated_at"`
 }
 
 // UserResponse is the public representation of a user

@@ -18,6 +18,9 @@ import (
 )
 
 func main() {
+
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")

@@ -1,4 +1,4 @@
-// -- Users table
+-- Users table
 CREATE TABLE users (
     id VARCHAR(36) PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
