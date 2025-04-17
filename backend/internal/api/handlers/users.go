@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -40,14 +41,30 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
+	// Handle NULL values when creating user response
+	name := ""
+	if user.Name.Valid {
+		name = user.Name.String
+	}
+
+	phoneNumber := ""
+	if user.PhoneNumber.Valid {
+		phoneNumber = user.PhoneNumber.String
+	}
+
+	profilePicture := ""
+	if user.ProfilePicture.Valid {
+		profilePicture = user.ProfilePicture.String
+	}
+
 	// Create user response
 	userResponse := models.UserResponse{
 		ID:             user.ID,
 		Username:       user.Username,
 		Email:          user.Email,
-		Name:           user.Name,
-		PhoneNumber:    user.PhoneNumber,
-		ProfilePicture: user.ProfilePicture,
+		Name:           name,
+		PhoneNumber:    phoneNumber,
+		ProfilePicture: profilePicture,
 		CreatedAt:      user.CreatedAt,
 	}
 
@@ -90,10 +107,14 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		}
 	}
 
+	// Convert request data to NullString for the database
+	nameNull := sql.NullString{String: req.Name, Valid: req.Name != ""}
+	phoneNumberNull := sql.NullString{String: req.PhoneNumber, Valid: req.PhoneNumber != ""}
+
 	// Update user
 	_, err := h.db.Exec(
 		"UPDATE users SET name = $1, email = $2, phone_number = $3, updated_at = $4 WHERE id = $5",
-		req.Name, req.Email, req.PhoneNumber, time.Now(), userID,
+		nameNull, req.Email, phoneNumberNull, time.Now(), userID,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
@@ -108,14 +129,30 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	// Handle NULL values when creating user response
+	name := ""
+	if user.Name.Valid {
+		name = user.Name.String
+	}
+
+	phoneNumber := ""
+	if user.PhoneNumber.Valid {
+		phoneNumber = user.PhoneNumber.String
+	}
+
+	profilePicture := ""
+	if user.ProfilePicture.Valid {
+		profilePicture = user.ProfilePicture.String
+	}
+
 	// Create user response
 	userResponse := models.UserResponse{
 		ID:             user.ID,
 		Username:       user.Username,
 		Email:          user.Email,
-		Name:           user.Name,
-		PhoneNumber:    user.PhoneNumber,
-		ProfilePicture: user.ProfilePicture,
+		Name:           name,
+		PhoneNumber:    phoneNumber,
+		ProfilePicture: profilePicture,
 		CreatedAt:      user.CreatedAt,
 	}
 

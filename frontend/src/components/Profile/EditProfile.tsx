@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../../types/User';
 import api from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 
 interface EditProfileProps {
   user: User;
@@ -19,6 +20,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ user }) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const { theme } = useTheme();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -108,108 +110,166 @@ const EditProfile: React.FC<EditProfileProps> = ({ user }) => {
   return (
     <div className="max-w-md mx-auto">
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className={`border px-4 py-3 rounded mb-4 ${
+          theme === 'dark'
+            ? 'bg-green-900 border-green-800 text-green-200'
+            : 'bg-green-100 border-green-400 text-green-700'
+        }`}>
           {success}
         </div>
       )}
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className={`border px-4 py-3 rounded mb-4 ${
+          theme === 'dark'
+            ? 'bg-red-900 border-red-800 text-red-200'
+            : 'bg-red-100 border-red-400 text-red-700'
+        }`}>
           {error}
         </div>
       )}
       
       <form onSubmit={updateProfile} className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Edit Profile Information</h2>
+        <h2 className={`text-xl font-semibold mb-4 ${
+          theme === 'dark' ? 'text-white' : 'text-gray-800'
+        }`}>Edit Profile Information</h2>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Name</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Name</label>
           <input
             type="text"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Email</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Email</label>
           <input
             type="email"
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Phone Number</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Phone Number</label>
           <input
             type="tel"
             name="phoneNumber"
             value={formData.phoneNumber}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <button
           type="submit"
           disabled={updating}
-          className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+          className={`px-4 py-2 rounded font-medium disabled:opacity-50 ${
+            theme === 'dark'
+              ? 'bg-accent-dark text-white'
+              : 'bg-primary-light text-white'
+          }`}
         >
           {updating ? 'Updating...' : 'Update Profile'}
         </button>
       </form>
       
-      <form onSubmit={updatePassword}>
-        <h2 className="text-xl font-semibold mb-4">Change Password</h2>
+      <form onSubmit={updatePassword} className="mb-8">
+        <h2 className={`text-xl font-semibold mb-4 ${
+          theme === 'dark' ? 'text-white' : 'text-gray-800'
+        }`}>Change Password</h2>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Current Password</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Current Password</label>
           <input
             type="password"
             name="currentPassword"
             value={formData.currentPassword}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">New Password</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>New Password</label>
           <input
             type="password"
             name="newPassword"
             value={formData.newPassword}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Confirm New Password</label>
+          <label className={`block mb-2 ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Confirm New Password</label>
           <input
             type="password"
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}
-            className="w-full border rounded px-3 py-2"
+            className={`w-full border rounded px-3 py-2 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
           />
         </div>
         
         <button
           type="submit"
           disabled={updating}
-          className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+          className={`px-4 py-2 rounded font-medium disabled:opacity-50 ${
+            theme === 'dark'
+              ? 'bg-accent-dark text-white'
+              : 'bg-primary-light text-white'
+          }`}
         >
           {updating ? 'Updating...' : 'Change Password'}
         </button>
       </form>
       
-      <div className="mt-12 pt-6 border-t">
+      <div className={`mt-12 pt-6 border-t ${
+        theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <h2 className="text-xl font-semibold mb-4 text-red-600">Danger Zone</h2>
         <button
           type="button"
@@ -219,7 +279,9 @@ const EditProfile: React.FC<EditProfileProps> = ({ user }) => {
         >
           Delete My Account
         </button>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className={`mt-2 text-sm ${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+        }`}>
           This will permanently delete your account and all your content.
         </p>
       </div>
