@@ -215,13 +215,13 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	postID := c.Param("id")
 
 	// Check if post exists and belongs to user
-	var exists bool
-	err := h.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND user_id = $2)", postID, userID)
+	var postExists bool // Fixed: renamed 'exists' to 'postExists'
+	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND user_id = $2)", postID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
-	if !exists {
+	if !postExists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found or you don't have permission to delete it"})
 		return
 	}
@@ -299,13 +299,13 @@ func (h *PostHandler) AddComment(c *gin.Context) {
 	}
 
 	// Check if post exists
-	var exists bool
-	err := h.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)", postID)
+	var postExists bool // Fixed: renamed 'exists' to 'postExists'
+	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)", postID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
-	if !exists {
+	if !postExists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
 	}
@@ -358,13 +358,13 @@ func (h *PostHandler) DeleteComment(c *gin.Context) {
 	commentID := c.Param("id")
 
 	// Check if comment exists and belongs to user
-	var exists bool
-	err := h.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM comments WHERE id = $1 AND user_id = $2)", commentID, userID)
+	var commentExists bool // Fixed: renamed 'exists' to 'commentExists'
+	err := h.db.Get(&commentExists, "SELECT EXISTS(SELECT 1 FROM comments WHERE id = $1 AND user_id = $2)", commentID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
-	if !exists {
+	if !commentExists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found or you don't have permission to delete it"})
 		return
 	}

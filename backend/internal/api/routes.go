@@ -1,13 +1,14 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"backend/configs"
 	"backend/internal/api/handlers"
 	"backend/internal/api/middleware"
 	"backend/internal/services/auth"
 	"backend/internal/storage"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 // SetupRouter configures the API routes
@@ -66,4 +67,9 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			posts.POST("", middleware.AuthMiddleware(jwtService, db), postHandler.CreatePost)
 			posts.DELETE("/:id", middleware.AuthMiddleware(jwtService, db), postHandler.DeletePost)
 			posts.POST("/:id/comments", middleware.AuthMiddleware(jwtService, db), postHandler.AddComment)
-			posts.DELETE("/comments/:id", middleware.AuthMiddleware(jwtService, db), postHandler.Deletbackend/
+			posts.DELETE("/comments/:id", middleware.AuthMiddleware(jwtService, db), postHandler.DeleteComment)
+		}
+	}
+
+	return router
+}

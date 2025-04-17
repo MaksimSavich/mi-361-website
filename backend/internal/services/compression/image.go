@@ -21,7 +21,7 @@ const (
 // CompressImage compresses an image to reduce file size
 func CompressImage(data []byte, contentType string) ([]byte, error) {
 	// Decode image
-	img, format, err := image.Decode(bytes.NewReader(data))
+	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}

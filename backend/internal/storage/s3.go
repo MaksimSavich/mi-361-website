@@ -11,6 +11,7 @@ import (
 	"backend/configs"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
@@ -24,38 +25,47 @@ type S3Client struct {
 
 // NewS3Client creates a new S3 client
 func NewS3Client(config configs.S3Config) (*S3Client, error) {
-	// Create custom resolver if endpoint is provided
-	var resolver aws.EndpointResolverWithOptions
-	if config.Endpoint != "" {
-		resolver = aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               config.Endpoint,
-				SigningRegion:     region,
-				HostnameImmutable: true,
-			}, nil
-		})
-	}
+	// Load AWS configuration options
+	var options []func(*awsconfig.LoadOptions) error
 
-	// Configure AWS SDK
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion(config.Region),
-		config.WithEndpointResolverWithOptions(resolver),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+	// Add region
+	options = append(options, awsconfig.WithRegion(config.Region))
+
+	// Add credentials
+	options = append(options, awsconfig.WithCredentialsProvider(
+		credentials.NewStaticCredentialsProvider(
 			config.AccessKey,
 			config.SecretKey,
 			"",
-		)),
-	)
+		),
+	))
+
+	// Configure custom endpoint if provided
+	if config.Endpoint != "" {
+		customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				URL:           config.Endpoint,
+				SigningRegion: region,
+			}, nil
+		})
+		options = append(options, awsconfig.WithEndpointResolver(customResolver))
+	}
+
+	// Load configuration
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	// Create S3 client with options
-	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+	// S3 client options
+	s3Options := func(o *s3.Options) {
 		if config.UsePathStyle {
 			o.UsePathStyle = true
 		}
-	})
+	}
+
+	// Create S3 client with options
+	s3Client := s3.NewFromConfig(cfg, s3Options)
 
 	return &S3Client{
 		client: s3Client,
@@ -99,12 +109,9 @@ func (s *S3Client) UploadFile(ctx context.Context, fileData []byte, fileName str
 
 // GetPublicURL returns a public URL for a file
 func (s *S3Client) GetPublicURL(s3Path string) string {
-	// If using a custom endpoint
-	endpoint := ""
-	if s3endpoint := s.client.Options().EndpointResolver; s3endpoint != nil {
-		// You would need to adapt this based on your actual endpoint configuration
-		endpoint = fmt.Sprintf("https://%s.%s/%s", s.bucket, "your-s3-endpoint", url.PathEscape(s3Path))
-		return endpoint
+	// For custom endpoints
+	if s.client.Options().BaseEndpoint != nil {
+		return fmt.Sprintf("%s/%s/%s", *s.client.Options().BaseEndpoint, s.bucket, url.PathEscape(s3Path))
 	}
 
 	// Standard S3 URL format
