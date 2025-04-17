@@ -9,8 +9,9 @@ interface CommentSectionProps {
   comments: Comment[];
 }
 
-const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments: initialComments }) => {
-  const [comments, setComments] = useState<Comment[]>(initialComments);
+const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments: initialComments = [] }) => {
+  // Initialize with empty array if initialComments is undefined
+  const [comments, setComments] = useState<Comment[]>(initialComments || []);
   const [newComment, setNewComment] = useState('');
   const { user, isAuthenticated } = useAuth();
   const { theme } = useTheme();

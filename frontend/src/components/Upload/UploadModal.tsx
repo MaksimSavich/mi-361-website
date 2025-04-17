@@ -83,11 +83,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
     formData.append('caption', caption);
     
     try {
-      await api.post('/posts', formData, {
+      const response = await api.post('/posts', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      // Debug the response
+      console.log('Upload response:', response.data);
       
       setCaption('');
       setFile(null);
@@ -97,8 +100,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
       // Refresh the feed or update state in parent component if needed
       window.location.reload();
     } catch (err) {
-      setError('Failed to upload. Please try again.');
       console.error('Upload error:', err);
+      setError('Failed to upload. Please try again.');
     } finally {
       setUploading(false);
     }
