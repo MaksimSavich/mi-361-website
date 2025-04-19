@@ -47,6 +47,7 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			auth.GET("/sessions", middleware.AuthMiddleware(jwtService, db), authHandler.GetSessions)
 			auth.POST("/revoke-session", middleware.AuthMiddleware(jwtService, db), authHandler.RevokeSession)
 			auth.POST("/revoke-all-sessions", middleware.AuthMiddleware(jwtService, db), authHandler.RevokeAllSessions)
+			auth.POST("/refresh-token", middleware.AuthMiddleware(jwtService, db), authHandler.RefreshToken)
 		}
 
 		// User routes

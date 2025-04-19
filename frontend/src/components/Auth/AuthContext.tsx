@@ -35,13 +35,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async (token: string) => {
     try {
       console.log('Refreshing user with token:', token); // Debug log
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/me`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/users/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       
       if (response.ok) {
+        console.log('User data response:', response); // Debug log
         const userData = await response.json();
         console.log('User data refreshed:', userData); // Debug log
         setUser(userData);
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Decoded token:', decoded); // Debug log
           
           // Token expires in less than 1 day, attempt to refresh
-          if (decoded.exp * 1000 < Date.now() + 24 * 60 * 60 * 1000) {
+          if (decoded.exp * 1000 < Date.now() + 1 * 60 * 60 * 1000) {
             try {
               console.log('Token is close to expiration, attempting refresh'); // Debug log
               // Send request to refresh token
