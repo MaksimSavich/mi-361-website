@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -105,6 +109,7 @@ func (h *PostHandler) GetPost(c *gin.Context) {
 }
 
 // CreatePost creates a new post
+// CreatePost creates a new post
 func (h *PostHandler) CreatePost(c *gin.Context) {
 	// Get user ID from context
 	userID, exists := c.Get("userID")
@@ -142,6 +147,62 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	mediaType := "image"
 	if contentType == "video/mp4" || contentType == "video/webm" {
 		mediaType = "video"
+
+		// Check video compatibility
+		if !compression.CheckVideoCompatibility(fileData, contentType) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Video format not supported by web browsers. Please use MP4 (H.264) or WebM format."})
+			return
+		}
+
+		// Create temporary directory for processing
+		tempDir, err := os.MkdirTemp("", "video_thumbnail")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create temp directory"})
+			return
+		}
+		defer os.RemoveAll(tempDir)
+
+		// Write video file to temp directory
+		inputPath := filepath.Join(tempDir, file.Filename)
+		if err := os.WriteFile(inputPath, fileData, 0644); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write temp file"})
+			return
+		}
+
+		// Generate thumbnail
+		thumbnailPath := filepath.Join(tempDir, "thumbnail.jpg")
+		thumbnailCmd := exec.Command(
+			"ffmpeg",
+			"-i", inputPath,
+			"-ss", "00:00:01", // Extract frame at 1 second
+			"-vframes", "1",
+			"-f", "image2",
+			thumbnailPath,
+		)
+
+		if err := thumbnailCmd.Run(); err != nil {
+			// Log error but continue with upload
+			log.Printf("Failed to generate thumbnail: %v", err)
+		} else {
+			// Read the thumbnail
+			thumbnailData, err := os.ReadFile(thumbnailPath)
+			if err == nil {
+				// Upload thumbnail to S3
+				thumbnailURL, err := h.s3Client.UploadFile(
+					c.Request.Context(),
+					thumbnailData,
+					"thumbnail_"+file.Filename+".jpg",
+					"image/jpeg",
+				)
+
+				if err == nil {
+					// Store thumbnail URL in database alongside the video
+					// This will require adding a thumbnail_url field to your posts table
+					// For now, just log it
+					log.Printf("Generated thumbnail at: %s", thumbnailURL)
+				}
+			}
+		}
 	}
 
 	// Compress file if needed

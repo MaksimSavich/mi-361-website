@@ -10,4 +10,5 @@ export interface Post {
   createdAt: string;
   likes: number;
   comments: Comment[];
+  thumbnailUrl?: string; // Optional thumbnail URL for videos
 }

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '../../types/Post';
 import { useTheme } from '../../context/ThemeContext';
+import { generateVideoThumbnail } from '../../utils/VideoUtils';
 
 interface PostCardProps {
   post: Post;
@@ -10,16 +11,94 @@ interface PostCardProps {
 const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
   const { theme } = useTheme();
   const [imageError, setImageError] = useState(false);
-  
-  // For debugging
-  useEffect(() => {
-    if (post.mediaUrl) {
-      console.log(`Post ID: ${post.id}, Media URL: ${post.mediaUrl}`);
-    }
-  }, [post]);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showPlayButton, setShowPlayButton] = useState(true);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   // Check if post has valid mediaUrl
   const hasValidMedia = post.mediaUrl && post.mediaUrl.trim() !== '';
+  
+  // Generate thumbnail for videos
+  useEffect(() => {
+    if (post.mediaType === 'video' && hasValidMedia && !thumbnailUrl) {
+      // Try to generate a thumbnail from the video
+      const generateThumbnail = async () => {
+        try {
+          const thumbnail = await generateVideoThumbnail(post.mediaUrl);
+          setThumbnailUrl(thumbnail);
+          console.log(`Generated thumbnail for video ${post.id}`);
+        } catch (err) {
+          console.error(`Failed to generate thumbnail for video ${post.id}:`, err);
+          // Continue without a thumbnail
+        }
+      };
+      
+      generateThumbnail();
+    }
+  }, [post, hasValidMedia, thumbnailUrl]);
+  
+  // Log media URLs for debugging
+  useEffect(() => {
+    if (post.mediaUrl) {
+      console.log(`Post ID: ${post.id}, Media URL: ${post.mediaUrl}, Type: ${post.mediaType}`);
+    }
+  }, [post]);
+
+  // Handle video events
+  const handleVideoMouseOver = () => {
+    if (videoRef.current && videoLoaded) {
+      // Show play button on hover
+      setShowPlayButton(true);
+      
+      // Using muted to bypass autoplay restrictions
+      videoRef.current.muted = true;
+      
+      // Use play() Promise to handle autoplay blocking gracefully
+      const playPromise = videoRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            // Video is playing
+            console.log(`Video playing: ${post.id}`);
+            setIsPlaying(true);
+            setShowPlayButton(false);
+          })
+          .catch(error => {
+            // Auto-play was prevented
+            console.warn(`Video autoplay prevented: ${error}`);
+            setIsPlaying(false);
+            setShowPlayButton(true);
+          });
+      }
+    }
+  };
+  
+  const handleVideoMouseOut = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setShowPlayButton(true);
+    }
+  };
+  
+  const handleVideoLoaded = () => {
+    console.log(`Video loaded: ${post.id}`);
+    setVideoLoaded(true);
+  };
+
+  const handleVideoPlay = () => {
+    setIsPlaying(true);
+    setShowPlayButton(false);
+  };
+
+  const handleVideoPause = () => {
+    setIsPlaying(false);
+    setShowPlayButton(true);
+  };
   
   return (
     <div 
@@ -33,46 +112,76 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
       <div className="relative pb-[100%]">
         {hasValidMedia && !imageError ? (
           post.mediaType === 'image' ? (
-            <>
-              <img 
-                src={post.mediaUrl} 
-                alt="Post content"
-                className="absolute top-0 left-0 w-full h-full object-cover"
-                onError={(e) => {
-                  console.error(`Error loading image: ${post.mediaUrl}`);
-                  setImageError(true);
-                }}
-              />
-              {/* For development - display URL text for debugging */}
-              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 overflow-auto max-h-20 hidden">
-                {post.mediaUrl}
-              </div>
-            </>
+            <img 
+              src={post.mediaUrl} 
+              alt="Post content"
+              className="absolute top-0 left-0 w-full h-full object-cover"
+              onError={() => {
+                console.error(`Error loading image: ${post.mediaUrl}`);
+                setImageError(true);
+              }}
+            />
           ) : (
             <div className="absolute top-0 left-0 w-full h-full">
+              {/* If we have a thumbnail, show it as a background image */}
+              {thumbnailUrl && !videoLoaded && (
+                <div 
+                  className="absolute inset-0 bg-cover bg-center z-0"
+                  style={{ backgroundImage: `url(${thumbnailUrl})` }}
+                />
+              )}
+              
+              {/* Video element */}
               <video 
+                ref={videoRef}
                 src={post.mediaUrl} 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover z-10"
                 controls={false}
                 muted
-                onClick={(e) => e.stopPropagation()}
-                onMouseOver={(e) => {
-                  const video = e.target as HTMLVideoElement;
-                  if (video.readyState >= 3) {
-                    video.play().catch(() => {});
+                playsInline
+                preload="metadata"
+                onLoadedData={handleVideoLoaded}
+                onMouseOver={handleVideoMouseOver}
+                onMouseOut={handleVideoMouseOut}
+                onPlay={handleVideoPlay}
+                onPause={handleVideoPause}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (videoRef.current) {
+                    if (videoRef.current.paused) {
+                      videoRef.current.play();
+                    } else {
+                      videoRef.current.pause();
+                    }
                   }
                 }}
-                onMouseOut={(e) => {
-                  const video = e.target as HTMLVideoElement;
-                  video.pause();
-                  video.currentTime = 0;
-                }}
                 onError={(e) => {
-                  console.error(`Error loading video: ${post.mediaUrl}`);
+                  console.error(`Error loading video: ${post.mediaUrl}`, e);
                   setImageError(true);
                 }}
               />
-              <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white p-1 rounded">
+              
+              {/* Play button overlay - only show when video is paused */}
+              {showPlayButton && !isPlaying && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center z-20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (videoRef.current) {
+                      videoRef.current.play().catch(() => {});
+                    }
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-full bg-black bg-opacity-60 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24" className="w-6 h-6">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+              
+              {/* Video indicator icon */}
+              <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white p-1 rounded z-20">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
                 </svg>

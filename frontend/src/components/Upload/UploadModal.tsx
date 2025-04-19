@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '../Auth/AuthContext';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
+import { isWebCompatibleVideo } from '../../utils/VideoUtils';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -29,6 +30,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
       return;
     }
     
+    // Additional video format validation
+    if (fileType === 'video' && !isWebCompatibleVideo(selectedFile)) {
+      setError('Please select a web-compatible video format (MP4 or WebM). Other formats may not play correctly in all browsers.');
+      return;
+    }
+    
     setFile(selectedFile);
     setError(null);
     
@@ -49,6 +56,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
       
       if (fileType !== 'image' && fileType !== 'video') {
         setError('Please select an image or video file');
+        return;
+      }
+      
+      // Additional video format validation
+      if (fileType === 'video' && !isWebCompatibleVideo(droppedFile)) {
+        setError('Please select a web-compatible video format (MP4 or WebM). Other formats may not play correctly in all browsers.');
         return;
       }
       
@@ -99,9 +112,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
       
       // Refresh the feed or update state in parent component if needed
       window.location.reload();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload error:', err);
-      setError('Failed to upload. Please try again.');
+      setError(
+        err.response?.data?.error || 
+        'Failed to upload. Please try again.'
+      );
     } finally {
       setUploading(false);
     }
@@ -156,11 +172,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
                 <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                   Or click to select from your device
                 </p>
+                <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Supported video formats: MP4, WebM
+                </p>
                 <input 
                   type="file" 
                   ref={fileInputRef}
                   onChange={handleFileSelect}
-                  accept="image/*,video/*" 
+                  accept="image/*,video/mp4,video/webm" 
                   className="hidden" 
                 />
               </div>
@@ -179,6 +198,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
                         src={preview} 
                         className="absolute top-0 left-0 w-full h-full object-contain"
                         controls
+                        playsInline
+                        muted
                       />
                     )}
                   </div>

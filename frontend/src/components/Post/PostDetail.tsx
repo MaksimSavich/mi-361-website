@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Post } from '../../types/Post';
-import { Comment } from '../../types/Comment';
 import CommentSection from './CommentSection';
 import { useTheme } from '../../context/ThemeContext';
+import { generateVideoThumbnail } from '../../utils/VideoUtils';
 
 interface PostDetailProps {
   post: Post;
@@ -12,22 +12,95 @@ interface PostDetailProps {
 const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { theme } = useTheme();
 
   // Ensure post.comments exists, defaulting to empty array if undefined
   const comments = post.comments || [];
 
+  // Generate thumbnail for videos
+  useEffect(() => {
+    if (post.mediaType === 'video' && post.mediaUrl && !thumbnailUrl) {
+      // Try to generate a thumbnail from the video
+      const generateThumbnail = async () => {
+        try {
+          const thumbnail = await generateVideoThumbnail(post.mediaUrl);
+          setThumbnailUrl(thumbnail);
+          console.log(`Generated detail thumbnail for video ${post.id}`);
+        } catch (err) {
+          console.error(`Failed to generate detail thumbnail for video ${post.id}:`, err);
+          // Continue without a thumbnail
+        }
+      };
+      
+      generateThumbnail();
+    }
+  }, [post, thumbnailUrl]);
+
+  // Log media URLs for debugging
+  useEffect(() => {
+    if (post.mediaUrl) {
+      console.log(`PostDetail - ID: ${post.id}, Media URL: ${post.mediaUrl}, Type: ${post.mediaType}`);
+    }
+  }, [post]);
+
   const togglePlay = (e: React.MouseEvent<HTMLVideoElement>) => {
     e.stopPropagation();
-    const video = e.target as HTMLVideoElement;
-    
-    if (video.paused) {
-      video.play().catch(() => {});
-      setIsPlaying(true);
-    } else {
-      video.pause();
-      setIsPlaying(false);
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        setIsLoadingVideo(true);
+        // Use play() Promise to handle potential play failures
+        const playPromise = videoRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              setIsLoadingVideo(false);
+              console.log(`Detail video playing: ${post.id}`);
+            })
+            .catch(error => {
+              console.warn(`Detail video play prevented: ${error}`);
+              setIsLoadingVideo(false);
+              // We might need to mute to allow autoplay
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play()
+                  .then(() => {
+                    setIsPlaying(true);
+                  })
+                  .catch(() => {
+                    setIsPlaying(false);
+                  });
+              }
+            });
+        }
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
     }
+  };
+
+  const handleVideoLoaded = () => {
+    console.log(`Detail video loaded: ${post.id}`);
+    setVideoLoaded(true);
+    setIsLoadingVideo(false);
+  };
+
+  const handleLoadStart = () => {
+    setIsLoadingVideo(true);
+  };
+
+  const handleVideoPlay = () => {
+    setIsPlaying(true);
+  };
+
+  const handleVideoPause = () => {
+    setIsPlaying(false);
   };
 
   // Check if post has valid mediaUrl
@@ -54,13 +127,68 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
                 onError={() => setImageError(true)}
               />
             ) : (
-              <video 
-                src={post.mediaUrl} 
-                className="w-full h-full object-contain"
-                controls
-                onClick={togglePlay}
-                onError={() => setImageError(true)}
-              />
+              <div className="relative w-full h-full">
+                {/* If we have a thumbnail, show it as background while video loads */}
+                {thumbnailUrl && !videoLoaded && (
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center z-0 flex items-center justify-center"
+                    style={{ backgroundImage: `url(${thumbnailUrl})` }}
+                  >
+                    <div className="w-16 h-16 rounded-full bg-black bg-opacity-60 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24" className="w-8 h-8">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+                
+                <video 
+                  ref={videoRef}
+                  src={post.mediaUrl} 
+                  className="w-full h-full object-contain z-10"
+                  controls
+                  controlsList="nodownload"
+                  playsInline
+                  preload="auto"
+                  poster={thumbnailUrl || undefined}
+                  onPlay={handleVideoPlay}
+                  onPause={handleVideoPause}
+                  onLoadStart={handleLoadStart}
+                  onLoadedData={handleVideoLoaded}
+                  onError={(e) => {
+                    console.error(`Error loading detail video: ${post.mediaUrl}`, e);
+                    setImageError(true);
+                  }}
+                />
+                
+                {/* Loading spinner */}
+                {isLoadingVideo && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 pointer-events-none z-20">
+                    <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+                      theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
+                    }`}></div>
+                  </div>
+                )}
+                
+                {/* Custom play button when video is paused and not loading - only in center area */}
+                {!isPlaying && !isLoadingVideo && videoLoaded && (
+                  <div 
+                    className="absolute left-1/4 right-1/4 top-1/4 bottom-1/4 flex items-center justify-center cursor-pointer z-20" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (videoRef.current) {
+                        videoRef.current.play().catch(() => {});
+                      }
+                    }}
+                  >
+                    <div className="w-16 h-16 rounded-full bg-black bg-opacity-60 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24" className="w-8 h-8">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           ) : (
             // Placeholder for missing or errored media

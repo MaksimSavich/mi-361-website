@@ -68,3 +68,15 @@ func CompressVideo(data []byte, contentType string) ([]byte, error) {
 
 	return compressedData, nil
 }
+
+func CheckVideoCompatibility(fileData []byte, contentType string) bool {
+	// Basic check based on content type
+	if contentType == "video/mp4" || contentType == "video/webm" {
+		return true
+	}
+
+	// For simplicity, just check the content type
+	// In a more sophisticated implementation, you could check the codec
+	// using ffprobe or other tools
+	return false
+}
