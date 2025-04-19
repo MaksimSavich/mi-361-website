@@ -28,6 +28,17 @@ const HomePage: React.FC = () => {
     fetchPosts();
   }, []);
 
+  // Find the full post details when a post card is clicked
+  const findPostById = (postId: string) => {
+    return posts.find(post => post.id === postId) || null;
+  };
+
+  // Handle post deletion
+  const handlePostDeleted = (postId: string) => {
+    setPosts(posts.filter(post => post.id !== postId));
+    setSelectedPost(null);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {error && (
@@ -77,6 +88,7 @@ const HomePage: React.FC = () => {
         <PostDetail
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
+          onPostDeleted={() => handlePostDeleted(selectedPost.id)}
         />
       )}
     </div>

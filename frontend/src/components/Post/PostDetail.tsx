@@ -3,23 +3,54 @@ import { Post } from '../../types/Post';
 import CommentSection from './CommentSection';
 import { useTheme } from '../../context/ThemeContext';
 import { generateVideoThumbnail } from '../../utils/VideoUtils';
+import { useAuth } from '../Auth/AuthContext';
+import api from '../../services/api';
+import OptionsMenu from './OptionsMenu';
 
 interface PostDetailProps {
   post: Post;
   onClose: () => void;
+  onPostDeleted?: () => void;
 }
 
-const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
+const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { theme } = useTheme();
+  const { user, isAuthenticated } = useAuth();
 
   // Ensure post.comments exists, defaulting to empty array if undefined
   const comments = post.comments || [];
+  
+  // Check if current user is the owner of the post
+  const isPostOwner = isAuthenticated && user?.id === post.userId;
+
+  // Handler for post deletion
+  const handleDeletePost = async () => {
+    if (!isAuthenticated || !isPostOwner) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.delete(`/posts/${post.id}`);
+      
+      // Notify parent component about deletion
+      if (onPostDeleted) {
+        onPostDeleted();
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Generate thumbnail for videos
   useEffect(() => {
@@ -102,7 +133,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
   const handleVideoPause = () => {
     setIsPlaying(false);
   };
-
+  
   // Check if post has valid mediaUrl
   const hasValidMedia = post.mediaUrl && post.mediaUrl.trim() !== '';
 
@@ -123,7 +154,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
               <img 
                 src={post.mediaUrl} 
                 alt="Post content"
-                className="w-full h-full object-contain"
+                className="absolute top-0 left-0 w-full h-full object-contain"
                 onError={() => setImageError(true)}
               />
             ) : (
@@ -192,10 +223,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
             )
           ) : (
             // Placeholder for missing or errored media
-            <div className="w-full h-full flex items-center justify-center bg-gray-800">
+            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-800">
               <div className="text-center p-8">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" 
-                  className="w-24 h-24 mx-auto mb-4 text-gray-400">
+                  className={`w-24 h-24 mx-auto mb-4 text-gray-400`}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                 </svg>
                 <p className="text-gray-300">Media not available</p>
@@ -208,16 +239,26 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
           <div className={`p-4 border-b ${
             theme === 'dark' ? 'border-gray-800 text-white' : 'border-gray-200 text-gray-800'
           }`}>
-            <div className="flex items-center mb-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
-              }`}>
-                <span className="font-medium">
-                  {post.username.charAt(0).toUpperCase()}
-                </span>
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
+                  <span className="font-medium">
+                    {post.username.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <p className="font-medium ml-3">{post.username}</p>
               </div>
-              <p className="font-medium ml-3">{post.username}</p>
+              
+              {/* Options Menu Button */}
+              <OptionsMenu 
+                isOwner={isPostOwner}
+                onDelete={handleDeletePost}
+                position="left"
+              />
             </div>
+            
             <p>{post.caption}</p>
             <div className="mt-3 flex items-center text-sm">
               <span className="flex items-center mr-4">
@@ -240,6 +281,9 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose }) => {
           <CommentSection 
             postId={post.id} 
             comments={comments}
+            onPostUpdate={() => {
+              // Reload comments if needed
+            }}
           />
         </div>
       </div>

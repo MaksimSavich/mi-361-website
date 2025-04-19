@@ -36,6 +36,12 @@ const ProfilePage: React.FC = () => {
     fetchUserPosts();
   }, [isAuthenticated, user]);
 
+  // Handle post deletion
+  const handlePostDeleted = (postId: string) => {
+    setPosts(posts.filter(post => post.id !== postId));
+    setSelectedPost(null);
+  };
+
   if (!isAuthenticated || !user) {
     return (
       <div className={`container mx-auto px-4 py-8 text-center ${
@@ -179,6 +185,7 @@ const ProfilePage: React.FC = () => {
         <PostDetail
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
+          onPostDeleted={() => handlePostDeleted(selectedPost.id)}
         />
       )}
     </div>

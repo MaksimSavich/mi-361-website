@@ -3,16 +3,23 @@ import { Comment } from '../../types/Comment';
 import { useAuth } from '../Auth/AuthContext';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
+import OptionsMenu from './OptionsMenu';
 
 interface CommentSectionProps {
   postId: string;
   comments: Comment[];
+  onPostUpdate?: () => void;
 }
 
-const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments: initialComments = [] }) => {
+const CommentSection: React.FC<CommentSectionProps> = ({ 
+  postId, 
+  comments: initialComments = [],
+  onPostUpdate
+}) => {
   // Initialize with empty array if initialComments is undefined
   const [comments, setComments] = useState<Comment[]>(initialComments || []);
   const [newComment, setNewComment] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const { theme } = useTheme();
 
@@ -30,9 +37,41 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments: initi
       
       setComments([...comments, response.data]);
       setNewComment('');
+      
+      // Notify parent component if needed
+      if (onPostUpdate) {
+        onPostUpdate();
+      }
     } catch (error) {
       console.error('Failed to post comment:', error);
     }
+  };
+  
+  const handleDeleteComment = async (commentId: string) => {
+    if (!isAuthenticated) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.delete(`/posts/comments/${commentId}`);
+      
+      // Update comments list
+      setComments(comments.filter(comment => comment.id !== commentId));
+      
+      // Notify parent component if needed
+      if (onPostUpdate) {
+        onPostUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      alert('Failed to delete comment. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Check if user is owner of a comment
+  const isCommentOwner = (comment: Comment) => {
+    return isAuthenticated && user?.id === comment.userId;
   };
 
   return (
@@ -47,17 +86,32 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments: initi
         ) : (
           comments.map((comment) => (
             <div key={comment.id} className="mb-4">
-              <div className="flex">
-                <span className={`font-medium mr-2 ${
-                  theme === 'dark' ? 'text-white' : 'text-gray-900'
-                }`}>{comment.username}</span>
-                <p>{comment.content}</p>
+              <div className="flex justify-between items-start group">
+                <div className="flex-1">
+                  <div className="flex">
+                    <span className={`font-medium mr-2 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>{comment.username}</span>
+                    <p>{comment.content}</p>
+                  </div>
+                  <p className={`text-xs mt-1 ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    {new Date(comment.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                
+                {/* Comment Options Menu */}
+                <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                  isDeleting ? 'pointer-events-none' : ''
+                }`}>
+                  <OptionsMenu 
+                    isOwner={isCommentOwner(comment)}
+                    onDelete={() => handleDeleteComment(comment.id)}
+                    size="sm"
+                  />
+                </div>
               </div>
-              <p className={`text-xs mt-1 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                {new Date(comment.createdAt).toLocaleDateString()}
-              </p>
             </div>
           ))
         )}
