@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"backend/internal/models"
 	"backend/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -283,6 +282,7 @@ func (h *AuthHandler) RevokeSession(c *gin.Context) {
 }
 
 // RevokeAllSessions revokes all sessions except the current one
+
 func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	// Get user ID and session ID from context
 	userID, exists := c.Get("userID")
@@ -308,24 +308,47 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "All other sessions revoked successfully"})
 }
 
-// generateSimpleToken creates a JWT token without using sessions
-func generateSimpleToken(userID string) (string, error) {
-	// Create claims with just the user ID
-	claims := jwt.MapClaims{
-		"userId": userID,
-		"exp":    time.Now().Add(time.Hour * 24 * 7).Unix(), // 1 week
-		"iat":    time.Now().Unix(),
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
 	}
 
-	// Create token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Get JWT secret from environment
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "default_secret_for_development" // Fallback for development
+	// Get session ID from context
+	sessionID, exists := c.Get("sessionID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
 	}
 
-	// Sign token
-	return token.SignedString([]byte(jwtSecret))
+	// Find user
+	var user models.User
+	err := h.db.Get(&user, "SELECT * FROM users WHERE id = $1", userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find user"})
+		return
+	}
+
+	// Generate new token
+	token, expirationTime, err := h.jwtService.GenerateToken(&user, sessionID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	// Update last active time for the session
+	_, err = h.db.Exec("UPDATE sessions SET last_active = NOW() WHERE id = $1", sessionID)
+	if err != nil {
+		// Log the error, but don't fail the request
+		// In a real app, you'd use proper logging
+		fmt.Println("Failed to update session last active time:", err)
+	}
+
+	// Return new token with expiration
+	c.JSON(http.StatusOK, gin.H{
+		"token":     token,
+		"expiresAt": expirationTime.Unix(),
+	})
 }
