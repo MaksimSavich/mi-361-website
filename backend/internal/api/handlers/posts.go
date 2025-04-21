@@ -440,3 +440,144 @@ func (h *PostHandler) DeleteComment(c *gin.Context) {
 	// Return success
 	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
 }
+
+// UpdateComment updates a comment's content
+func (h *PostHandler) UpdateComment(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	commentID := c.Param("id")
+
+	// Parse request
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Check if comment exists and belongs to user
+	var commentExists bool
+	err := h.db.Get(&commentExists, "SELECT EXISTS(SELECT 1 FROM comments WHERE id = $1 AND user_id = $2)", commentID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if !commentExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found or you don't have permission to edit it"})
+		return
+	}
+
+	// Update comment
+	now := time.Now()
+	_, err = h.db.Exec(
+		"UPDATE comments SET content = $1, updated_at = $2 WHERE id = $3",
+		req.Content, now, commentID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update comment"})
+		return
+	}
+
+	// Get updated comment
+	var comment models.Comment
+	err = h.db.Get(
+		&comment,
+		`SELECT c.*, u.username 
+		FROM comments c 
+		JOIN users u ON c.user_id = u.id 
+		WHERE c.id = $1`,
+		commentID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated comment"})
+		return
+	}
+
+	// Return updated comment
+	c.JSON(http.StatusOK, comment)
+}
+
+// UpdatePost updates a post's caption
+func (h *PostHandler) UpdatePost(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	postID := c.Param("id")
+
+	// Parse request
+	var req struct {
+		Caption string `json:"caption" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Check if post exists and belongs to user
+	var postExists bool
+	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND user_id = $2)", postID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if !postExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found or you don't have permission to edit it"})
+		return
+	}
+
+	// Update post
+	now := time.Now()
+	_, err = h.db.Exec(
+		"UPDATE posts SET caption = $1, updated_at = $2 WHERE id = $3",
+		req.Caption, now, postID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update post"})
+		return
+	}
+
+	// Get updated post
+	var post models.Post
+	err = h.db.Get(
+		&post,
+		`SELECT p.*, u.username 
+		FROM posts p 
+		JOIN users u ON p.user_id = u.id 
+		WHERE p.id = $1`,
+		postID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated post"})
+		return
+	}
+
+	// Get comments for the post
+	err = h.db.Select(
+		&post.Comments,
+		`SELECT c.*, u.username 
+		FROM comments c 
+		JOIN users u ON c.user_id = u.id 
+		WHERE c.post_id = $1  
+		ORDER BY c.created_at ASC`,
+		postID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get comments"})
+		return
+	}
+
+	// Return updated post with comments
+	c.JSON(http.StatusOK, post)
+}
