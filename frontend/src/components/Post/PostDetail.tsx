@@ -20,9 +20,17 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCaption, setEditCaption] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { theme } = useTheme();
   const { user, isAuthenticated } = useAuth();
+
+  // Initialize caption state when post changes
+  useEffect(() => {
+    setEditCaption(post.caption);
+  }, [post]);
 
   // Ensure post.comments exists, defaulting to empty array if undefined
   const comments = post.comments || [];
@@ -50,6 +58,40 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
     } finally {
       setIsDeleting(false);
     }
+  };
+  
+  // Handler for editing post
+  const handleEditPost = () => {
+    setIsEditing(true);
+  };
+  
+  // Handler for saving edited post
+  const handleSavePost = async () => {
+    if (!isAuthenticated || !isPostOwner || !editCaption.trim()) return;
+    
+    setIsUpdating(true);
+    try {
+      const response = await api.put(`/posts/${post.id}`, {
+        caption: editCaption
+      });
+      
+      // Update the post in the UI
+      post.caption = response.data.caption;
+      
+      // Exit edit mode
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update post:', error);
+      alert('Failed to update post. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  // Handler for canceling edit
+  const handleCancelEdit = () => {
+    setEditCaption(post.caption);
+    setIsEditing(false);
   };
 
   // Generate thumbnail for videos
@@ -255,11 +297,50 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
               <OptionsMenu 
                 isOwner={isPostOwner}
                 onDelete={handleDeletePost}
+                onEdit={handleEditPost}
                 position="left"
               />
             </div>
             
-            <p>{post.caption}</p>
+            {isEditing ? (
+              <div className="mt-2">
+                <textarea
+                  value={editCaption}
+                  onChange={(e) => setEditCaption(e.target.value)}
+                  className={`w-full border rounded p-2 resize-none focus:outline-none ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                      : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                  }`}
+                  rows={3}
+                />
+                <div className="flex justify-end mt-2 space-x-2">
+                  <button
+                    onClick={handleCancelEdit}
+                    className={`px-3 py-1 rounded text-sm ${
+                      theme === 'dark'
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSavePost}
+                    disabled={isUpdating || !editCaption.trim()}
+                    className={`px-3 py-1 rounded text-sm disabled:opacity-50 ${
+                      theme === 'dark'
+                        ? 'bg-accent-dark text-white'
+                        : 'bg-primary-light text-white'
+                    }`}
+                  >
+                    {isUpdating ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p>{post.caption}</p>
+            )}
             <div className="mt-3 flex items-center text-sm">
               <span className="flex items-center mr-4">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" 

@@ -161,6 +161,22 @@ func (s *S3Client) DeleteFile(ctx context.Context, s3Path string) error {
 		}
 	}
 
+	// For videos, make sure we have the correct folder prefix
+	if strings.HasSuffix(s3Path, ".mp4") || strings.HasSuffix(s3Path, ".webm") {
+		// If the path doesn't already have a videos/ prefix, add it
+		if !strings.HasPrefix(s3Path, "videos/") {
+			s3Path = "videos/" + s3Path
+		}
+	} else if strings.HasSuffix(s3Path, ".jpg") || strings.HasSuffix(s3Path, ".jpeg") ||
+		strings.HasSuffix(s3Path, ".png") || strings.HasSuffix(s3Path, ".gif") {
+		// For images, add the images/ prefix if not present
+		if !strings.HasPrefix(s3Path, "images/") {
+			s3Path = "images/" + s3Path
+		}
+	}
+
+	log.Printf("Final S3 path for deletion: bucket=%s, key=%s", s.bucket, s3Path)
+
 	// Execute the delete operation
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),

@@ -20,6 +20,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [comments, setComments] = useState<Comment[]>(initialComments || []);
   const [newComment, setNewComment] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const { theme } = useTheme();
 
@@ -69,6 +72,46 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   };
   
+  const handleEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditedContent(comment.content);
+  };
+  
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditedContent('');
+  };
+  
+  const handleSaveComment = async (commentId: string) => {
+    if (!isAuthenticated || !editedContent.trim()) return;
+    
+    setIsUpdating(true);
+    try {
+      const response = await api.put(`/posts/comments/${commentId}`, {
+        content: editedContent
+      });
+      
+      // Update the comment in the comments list
+      setComments(comments.map(comment => 
+        comment.id === commentId ? { ...response.data } : comment
+      ));
+      
+      // Reset editing state
+      setEditingCommentId(null);
+      setEditedContent('');
+      
+      // Notify parent component if needed
+      if (onPostUpdate) {
+        onPostUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to update comment:', error);
+      alert('Failed to update comment. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
   // Check if user is owner of a comment
   const isCommentOwner = (comment: Comment) => {
     return isAuthenticated && user?.id === comment.userId;
@@ -88,29 +131,72 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <div key={comment.id} className="mb-4">
               <div className="flex justify-between items-start group">
                 <div className="flex-1">
-                  <div className="flex">
-                    <span className={`font-medium mr-2 ${
-                      theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}>{comment.username}</span>
-                    <p>{comment.content}</p>
-                  </div>
-                  <p className={`text-xs mt-1 ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    {new Date(comment.createdAt).toLocaleDateString()}
-                  </p>
+                  {editingCommentId === comment.id ? (
+                    <div>
+                      <textarea
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        className={`w-full border rounded p-2 text-sm resize-none focus:outline-none ${
+                          theme === 'dark'
+                            ? 'bg-gray-700 border-gray-600 text-white'
+                            : 'bg-white border-gray-300 text-gray-800'
+                        }`}
+                        rows={2}
+                      />
+                      <div className="flex justify-end mt-1 space-x-2">
+                        <button
+                          onClick={handleCancelEdit}
+                          className={`px-2 py-1 rounded text-xs ${
+                            theme === 'dark'
+                              ? 'bg-gray-600 text-white'
+                              : 'bg-gray-200 text-gray-800'
+                          }`}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleSaveComment(comment.id)}
+                          disabled={isUpdating || !editedContent.trim()}
+                          className={`px-2 py-1 rounded text-xs disabled:opacity-50 ${
+                            theme === 'dark'
+                              ? 'bg-accent-dark text-white'
+                              : 'bg-primary-light text-white'
+                          }`}
+                        >
+                          {isUpdating ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex">
+                        <span className={`font-medium mr-2 ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+                        }`}>{comment.username}</span>
+                        <p>{comment.content}</p>
+                      </div>
+                      <p className={`text-xs mt-1 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {new Date(comment.createdAt).toLocaleDateString()}
+                      </p>
+                    </>
+                  )}
                 </div>
                 
                 {/* Comment Options Menu */}
-                <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                  isDeleting ? 'pointer-events-none' : ''
-                }`}>
-                  <OptionsMenu 
-                    isOwner={isCommentOwner(comment)}
-                    onDelete={() => handleDeleteComment(comment.id)}
-                    size="sm"
-                  />
-                </div>
+                {editingCommentId !== comment.id && (
+                  <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                    isDeleting || isUpdating ? 'pointer-events-none' : ''
+                  }`}>
+                    <OptionsMenu 
+                      isOwner={isCommentOwner(comment)}
+                      onDelete={() => handleDeleteComment(comment.id)}
+                      onEdit={() => handleEditComment(comment)}
+                      size="sm"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ))
