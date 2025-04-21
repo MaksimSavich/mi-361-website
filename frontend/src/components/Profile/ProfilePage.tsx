@@ -41,6 +41,19 @@ const ProfilePage: React.FC = () => {
     setPosts(posts.filter(post => post.id !== postId));
     setSelectedPost(null);
   };
+  
+  // Handle post updates (including likes)
+  const handlePostUpdated = (updatedPost: Post) => {
+    // Update the post in our state
+    setPosts(posts.map(post => 
+      post.id === updatedPost.id ? updatedPost : post
+    ));
+    
+    // If this is the currently selected post, update it too
+    if (selectedPost && selectedPost.id === updatedPost.id) {
+      setSelectedPost(updatedPost);
+    }
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -171,6 +184,7 @@ const ProfilePage: React.FC = () => {
                   key={post.id}
                   post={post}
                   onClick={() => setSelectedPost(post)}
+                  onPostUpdated={handlePostUpdated}
                 />
               ))}
             </div>
@@ -186,6 +200,7 @@ const ProfilePage: React.FC = () => {
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
           onPostDeleted={() => handlePostDeleted(selectedPost.id)}
+          onPostUpdated={handlePostUpdated}
         />
       )}
     </div>

@@ -6,14 +6,16 @@ import { generateVideoThumbnail } from '../../utils/VideoUtils';
 import { useAuth } from '../Auth/AuthContext';
 import api from '../../services/api';
 import OptionsMenu from './OptionsMenu';
+import LikeButton from './LikeButton';
 
 interface PostDetailProps {
   post: Post;
   onClose: () => void;
   onPostDeleted?: () => void;
+  onPostUpdated?: (updatedPost: Post) => void;
 }
 
-const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted }) => {
+const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted, onPostUpdated }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
@@ -23,20 +25,22 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
   const [isEditing, setIsEditing] = useState(false);
   const [editCaption, setEditCaption] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [currentPost, setCurrentPost] = useState<Post>(post);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { theme } = useTheme();
   const { user, isAuthenticated } = useAuth();
 
   // Initialize caption state when post changes
   useEffect(() => {
+    setCurrentPost(post);
     setEditCaption(post.caption);
   }, [post]);
 
   // Ensure post.comments exists, defaulting to empty array if undefined
-  const comments = post.comments || [];
+  const comments = currentPost.comments || [];
   
   // Check if current user is the owner of the post
-  const isPostOwner = isAuthenticated && user?.id === post.userId;
+  const isPostOwner = isAuthenticated && user?.id === currentPost.userId;
 
   // Handler for post deletion
   const handleDeletePost = async () => {
@@ -44,7 +48,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
     
     setIsDeleting(true);
     try {
-      await api.delete(`/posts/${post.id}`);
+      await api.delete(`/posts/${currentPost.id}`);
       
       // Notify parent component about deletion
       if (onPostDeleted) {
@@ -71,12 +75,22 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
     
     setIsUpdating(true);
     try {
-      const response = await api.put(`/posts/${post.id}`, {
+      const response = await api.put(`/posts/${currentPost.id}`, {
         caption: editCaption
       });
       
       // Update the post in the UI
-      post.caption = response.data.caption;
+      const updatedPost = {
+        ...currentPost,
+        caption: response.data.caption
+      };
+      
+      setCurrentPost(updatedPost);
+      
+      // Propagate change to parent component if callback provided
+      if (onPostUpdated) {
+        onPostUpdated(updatedPost);
+      }
       
       // Exit edit mode
       setIsEditing(false);
@@ -90,35 +104,51 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
   
   // Handler for canceling edit
   const handleCancelEdit = () => {
-    setEditCaption(post.caption);
+    setEditCaption(currentPost.caption);
     setIsEditing(false);
+  };
+
+  // Handle like state changes
+  const handleLikeChanged = (newLikes: number, liked: boolean) => {
+    const updatedPost = {
+      ...currentPost,
+      likes: newLikes,
+      liked: liked
+    };
+    
+    setCurrentPost(updatedPost);
+    
+    // Propagate change to parent component if callback provided
+    if (onPostUpdated) {
+      onPostUpdated(updatedPost);
+    }
   };
 
   // Generate thumbnail for videos
   useEffect(() => {
-    if (post.mediaType === 'video' && post.mediaUrl && !thumbnailUrl) {
+    if (currentPost.mediaType === 'video' && currentPost.mediaUrl && !thumbnailUrl) {
       // Try to generate a thumbnail from the video
       const generateThumbnail = async () => {
         try {
-          const thumbnail = await generateVideoThumbnail(post.mediaUrl);
+          const thumbnail = await generateVideoThumbnail(currentPost.mediaUrl);
           setThumbnailUrl(thumbnail);
-          console.log(`Generated detail thumbnail for video ${post.id}`);
+          console.log(`Generated detail thumbnail for video ${currentPost.id}`);
         } catch (err) {
-          console.error(`Failed to generate detail thumbnail for video ${post.id}:`, err);
+          console.error(`Failed to generate detail thumbnail for video ${currentPost.id}:`, err);
           // Continue without a thumbnail
         }
       };
       
       generateThumbnail();
     }
-  }, [post, thumbnailUrl]);
+  }, [currentPost, thumbnailUrl]);
 
   // Log media URLs for debugging
   useEffect(() => {
-    if (post.mediaUrl) {
-      console.log(`PostDetail - ID: ${post.id}, Media URL: ${post.mediaUrl}, Type: ${post.mediaType}`);
+    if (currentPost.mediaUrl) {
+      console.log(`PostDetail - ID: ${currentPost.id}, Media URL: ${currentPost.mediaUrl}, Type: ${currentPost.mediaType}`);
     }
-  }, [post]);
+  }, [currentPost]);
 
   const togglePlay = (e: React.MouseEvent<HTMLVideoElement>) => {
     e.stopPropagation();
@@ -133,7 +163,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
             .then(() => {
               setIsPlaying(true);
               setIsLoadingVideo(false);
-              console.log(`Detail video playing: ${post.id}`);
+              console.log(`Detail video playing: ${currentPost.id}`);
             })
             .catch(error => {
               console.warn(`Detail video play prevented: ${error}`);
@@ -159,7 +189,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
   };
 
   const handleVideoLoaded = () => {
-    console.log(`Detail video loaded: ${post.id}`);
+    console.log(`Detail video loaded: ${currentPost.id}`);
     setVideoLoaded(true);
     setIsLoadingVideo(false);
   };
@@ -177,7 +207,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
   };
   
   // Check if post has valid mediaUrl
-  const hasValidMedia = post.mediaUrl && post.mediaUrl.trim() !== '';
+  const hasValidMedia = currentPost.mediaUrl && currentPost.mediaUrl.trim() !== '';
 
   return (
     <div 
@@ -192,9 +222,9 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
       >
         <div className="md:w-2/3 relative bg-black">
           {hasValidMedia && !imageError ? (
-            post.mediaType === 'image' ? (
+            currentPost.mediaType === 'image' ? (
               <img 
-                src={post.mediaUrl} 
+                src={currentPost.mediaUrl} 
                 alt="Post content"
                 className="absolute top-0 left-0 w-full h-full object-contain"
                 onError={() => setImageError(true)}
@@ -217,7 +247,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
                 
                 <video 
                   ref={videoRef}
-                  src={post.mediaUrl} 
+                  src={currentPost.mediaUrl} 
                   className="w-full h-full object-contain z-10"
                   controls
                   controlsList="nodownload"
@@ -229,7 +259,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
                   onLoadStart={handleLoadStart}
                   onLoadedData={handleVideoLoaded}
                   onError={(e) => {
-                    console.error(`Error loading detail video: ${post.mediaUrl}`, e);
+                    console.error(`Error loading detail video: ${currentPost.mediaUrl}`, e);
                     setImageError(true);
                   }}
                 />
@@ -287,10 +317,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
                   theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
                 }`}>
                   <span className="font-medium">
-                    {post.username.charAt(0).toUpperCase()}
+                    {currentPost.username.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <p className="font-medium ml-3">{post.username}</p>
+                <p className="font-medium ml-3">{currentPost.username}</p>
               </div>
               
               {/* Options Menu Button */}
@@ -339,28 +369,28 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted })
                 </div>
               </div>
             ) : (
-              <p>{post.caption}</p>
+              <p>{currentPost.caption}</p>
             )}
             <div className="mt-3 flex items-center text-sm">
-              <span className="flex items-center mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" 
-                  className={`w-5 h-5 mr-1 ${
-                    theme === 'dark' ? 'text-red-400' : 'text-red-500'
-                  }`}>
-                  <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                </svg>
-                {post.likes} likes
-              </span>
+              {/* Like Button */}
+              <LikeButton 
+                postId={currentPost.id}
+                likes={currentPost.likes}
+                liked={currentPost.liked}
+                onLike={handleLikeChanged}
+                className="mr-4"
+              />
+              
               <span className={`${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
               }`}>
-                {new Date(post.createdAt).toLocaleDateString()}
+                {new Date(currentPost.createdAt).toLocaleDateString()}
               </span>
             </div>
           </div>
           
           <CommentSection 
-            postId={post.id} 
+            postId={currentPost.id} 
             comments={comments}
             onPostUpdate={() => {
               // Reload comments if needed

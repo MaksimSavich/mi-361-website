@@ -50,6 +50,17 @@ func (h *PostHandler) GetPosts(c *gin.Context) {
 		return
 	}
 
+	if userID, exists := c.Get("userID"); exists {
+		// Check which posts the user has liked
+		for i := range posts {
+			var liked bool
+			err := h.db.Get(&liked, "SELECT EXISTS(SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2)", posts[i].ID, userID)
+			if err == nil {
+				posts[i].Liked = liked
+			}
+		}
+	}
+
 	// Get comments for each post
 	for i := range posts {
 		err := h.db.Select(
@@ -88,6 +99,15 @@ func (h *PostHandler) GetPost(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
+	}
+
+	// Similarly in GetPost method, after fetching the post
+	if userID, exists := c.Get("userID"); exists {
+		var liked bool
+		err := h.db.Get(&liked, "SELECT EXISTS(SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2)", post.ID, userID)
+		if err == nil {
+			post.Liked = liked
+		}
 	}
 
 	// Get comments
@@ -605,4 +625,214 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 
 	// Return updated post with comments
 	c.JSON(http.StatusOK, post)
+}
+
+// LikePost adds a like to a post
+func (h *PostHandler) LikePost(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	postID := c.Param("id")
+	log.Printf("LikePost: Processing like for postID=%s, userID=%s", postID, userID)
+
+	// Check if post exists
+	var postExists bool
+	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)", postID)
+	if err != nil {
+		log.Printf("LikePost: Database error checking if post exists: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if !postExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
+		return
+	}
+
+	// Start a transaction
+	tx, err := h.db.Beginx()
+	if err != nil {
+		log.Printf("LikePost: Failed to begin transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Check if user already liked the post
+	var alreadyLiked bool
+	err = tx.Get(&alreadyLiked, "SELECT EXISTS(SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2)", postID, userID)
+	if err != nil {
+		log.Printf("LikePost: Failed to check if user already liked post: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking like status"})
+		return
+	}
+	log.Printf("LikePost: User has already liked post: %t", alreadyLiked)
+
+	// If user hasn't liked the post, add the like
+	if !alreadyLiked {
+		// Create new like record
+		likeID := uuid.New().String()
+		now := time.Now()
+
+		_, err = tx.Exec(
+			"INSERT INTO post_likes (id, post_id, user_id, created_at) VALUES ($1, $2, $3, $4)",
+			likeID, postID, userID, now,
+		)
+		if err != nil {
+			log.Printf("LikePost: Failed to insert like record: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to like post"})
+			return
+		}
+
+		// Increment post likes count
+		_, err = tx.Exec("UPDATE posts SET likes = likes + 1 WHERE id = $1", postID)
+		if err != nil {
+			log.Printf("LikePost: Failed to update post like count: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update like count"})
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("LikePost: Failed to commit transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Get updated like count
+	var likeCount int
+	err = h.db.Get(&likeCount, "SELECT likes FROM posts WHERE id = $1", postID)
+	if err != nil {
+		log.Printf("LikePost: Failed to get updated like count: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get like count"})
+		return
+	}
+
+	log.Printf("LikePost: Successfully processed like. New count: %d", likeCount)
+
+	// Return success
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post liked successfully",
+		"likes":   likeCount,
+		"liked":   true,
+	})
+}
+
+// UnlikePost removes a like from a post
+func (h *PostHandler) UnlikePost(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	postID := c.Param("id")
+	log.Printf("UnlikePost: Processing unlike for postID=%s, userID=%s", postID, userID)
+
+	// Start a transaction
+	tx, err := h.db.Beginx()
+	if err != nil {
+		log.Printf("UnlikePost: Failed to begin transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Check if user has liked the post
+	var alreadyLiked bool
+	err = tx.Get(&alreadyLiked, "SELECT EXISTS(SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2)", postID, userID)
+	if err != nil {
+		log.Printf("UnlikePost: Failed to check if user liked post: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking like status"})
+		return
+	}
+	log.Printf("UnlikePost: User has liked post: %t", alreadyLiked)
+
+	// If user has liked the post, remove the like
+	if alreadyLiked {
+		// Delete like record
+		_, err = tx.Exec("DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2", postID, userID)
+		if err != nil {
+			log.Printf("UnlikePost: Failed to delete like record: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unlike post"})
+			return
+		}
+
+		// Decrement post likes count
+		_, err = tx.Exec("UPDATE posts SET likes = GREATEST(0, likes - 1) WHERE id = $1", postID)
+		if err != nil {
+			log.Printf("UnlikePost: Failed to update post like count: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update like count"})
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		log.Printf("UnlikePost: Failed to commit transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Get updated like count
+	var likeCount int
+	err = h.db.Get(&likeCount, "SELECT likes FROM posts WHERE id = $1", postID)
+	if err != nil {
+		log.Printf("UnlikePost: Failed to get updated like count: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get like count"})
+		return
+	}
+
+	log.Printf("UnlikePost: Successfully processed unlike. New count: %d", likeCount)
+
+	// Return success
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post unliked successfully",
+		"likes":   likeCount,
+		"liked":   false,
+	})
+}
+
+// GetLikeStatus returns whether a user has liked a post
+func (h *PostHandler) GetLikeStatus(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	postID := c.Param("id")
+	log.Printf("GetLikeStatus: Checking like status for postID=%s, userID=%s", postID, userID)
+
+	// Check if user has liked the post
+	var liked bool
+	err := h.db.Get(&liked, "SELECT EXISTS(SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2)", postID, userID)
+	if err != nil {
+		log.Printf("GetLikeStatus: Failed to check if user liked post: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking like status"})
+		return
+	}
+
+	// Get like count
+	var likeCount int
+	err = h.db.Get(&likeCount, "SELECT likes FROM posts WHERE id = $1", postID)
+	if err != nil {
+		log.Printf("GetLikeStatus: Failed to get like count: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get like count"})
+		return
+	}
+
+	log.Printf("GetLikeStatus: Like status: liked=%t, count=%d", liked, likeCount)
+
+	// Return response
+	c.JSON(http.StatusOK, gin.H{
+		"liked": liked,
+		"likes": likeCount,
+	})
 }

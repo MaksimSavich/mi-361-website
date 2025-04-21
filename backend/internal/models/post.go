@@ -13,6 +13,7 @@ type Post struct {
 	MediaURL  string    `json:"mediaUrl" db:"media_url"`
 	MediaType string    `json:"mediaType" db:"media_type"`
 	Likes     int       `json:"likes" db:"likes"`
+	Liked     bool      `json:"liked,omitempty" db:"-"` // New field to indicate if current user liked the post
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 	Comments  []Comment `json:"comments,omitempty" db:"-"`

@@ -2,50 +2,51 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '../../types/Post';
 import { useTheme } from '../../context/ThemeContext';
 import { generateVideoThumbnail } from '../../utils/VideoUtils';
+import LikeButton from './LikeButton';
 
 interface PostCardProps {
   post: Post;
   onClick: () => void;
+  onPostUpdated?: (updatedPost: Post) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onClick, onPostUpdated }) => {
   const { theme } = useTheme();
   const [imageError, setImageError] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlayButton, setShowPlayButton] = useState(true);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [currentPost, setCurrentPost] = useState<Post>(post);
   const videoRef = useRef<HTMLVideoElement>(null);
   
+  // Update local post state when prop changes
+  useEffect(() => {
+    setCurrentPost(post);
+  }, [post]);
+  
   // Check if post has valid mediaUrl
-  const hasValidMedia = post.mediaUrl && post.mediaUrl.trim() !== '';
+  const hasValidMedia = currentPost.mediaUrl && currentPost.mediaUrl.trim() !== '';
   
   // Generate thumbnail for videos
   useEffect(() => {
-    if (post.mediaType === 'video' && hasValidMedia && !thumbnailUrl) {
+    if (currentPost.mediaType === 'video' && hasValidMedia && !thumbnailUrl) {
       // Try to generate a thumbnail from the video
       const generateThumbnail = async () => {
         try {
-          const thumbnail = await generateVideoThumbnail(post.mediaUrl);
+          const thumbnail = await generateVideoThumbnail(currentPost.mediaUrl);
           setThumbnailUrl(thumbnail);
-          console.log(`Generated thumbnail for video ${post.id}`);
+          console.log(`Generated thumbnail for video ${currentPost.id}`);
         } catch (err) {
-          console.error(`Failed to generate thumbnail for video ${post.id}:`, err);
+          console.error(`Failed to generate thumbnail for video ${currentPost.id}:`, err);
           // Continue without a thumbnail
         }
       };
       
       generateThumbnail();
     }
-  }, [post, hasValidMedia, thumbnailUrl]);
+  }, [currentPost, hasValidMedia, thumbnailUrl]);
   
-  // Log media URLs for debugging
-  useEffect(() => {
-    if (post.mediaUrl) {
-      console.log(`Post ID: ${post.id}, Media URL: ${post.mediaUrl}, Type: ${post.mediaType}`);
-    }
-  }, [post]);
-
   // Handle video events
   const handleVideoMouseOver = () => {
     if (videoRef.current && videoLoaded) {
@@ -62,7 +63,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
         playPromise
           .then(() => {
             // Video is playing
-            console.log(`Video playing: ${post.id}`);
+            console.log(`Video playing: ${currentPost.id}`);
             setIsPlaying(true);
             setShowPlayButton(false);
           })
@@ -86,7 +87,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
   };
   
   const handleVideoLoaded = () => {
-    console.log(`Video loaded: ${post.id}`);
+    console.log(`Video loaded: ${currentPost.id}`);
     setVideoLoaded(true);
   };
 
@@ -100,6 +101,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
     setShowPlayButton(true);
   };
   
+  // Handle like state changes
+  const handleLikeChanged = (newLikes: number, liked: boolean) => {
+    const updatedPost = {
+      ...currentPost,
+      likes: newLikes,
+      liked: liked
+    };
+    
+    setCurrentPost(updatedPost);
+    
+    // Propagate change to parent component if callback provided
+    if (onPostUpdated) {
+      onPostUpdated(updatedPost);
+    }
+  };
+  
   return (
     <div 
       className={`rounded-lg overflow-hidden shadow-md cursor-pointer hover:shadow-lg transition-all transform hover:scale-102 ${
@@ -111,13 +128,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
     >
       <div className="relative pb-[100%]">
         {hasValidMedia && !imageError ? (
-          post.mediaType === 'image' ? (
+          currentPost.mediaType === 'image' ? (
             <img 
-              src={post.mediaUrl} 
+              src={currentPost.mediaUrl} 
               alt="Post content"
               className="absolute top-0 left-0 w-full h-full object-cover"
               onError={() => {
-                console.error(`Error loading image: ${post.mediaUrl}`);
+                console.error(`Error loading image: ${currentPost.mediaUrl}`);
                 setImageError(true);
               }}
             />
@@ -134,7 +151,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
               {/* Video element */}
               <video 
                 ref={videoRef}
-                src={post.mediaUrl} 
+                src={currentPost.mediaUrl} 
                 className="w-full h-full object-cover z-10"
                 controls={false}
                 muted
@@ -156,7 +173,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
                   }
                 }}
                 onError={(e) => {
-                  console.error(`Error loading video: ${post.mediaUrl}`, e);
+                  console.error(`Error loading video: ${currentPost.mediaUrl}`, e);
                   setImageError(true);
                 }}
               />
@@ -201,19 +218,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, onClick }) => {
       <div className="p-3">
         <p className={`text-sm truncate ${
           theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-        }`}>{post.caption}</p>
+        }`}>{currentPost.caption}</p>
         <div className="flex justify-between items-center mt-2">
           <p className={`text-xs ${
             theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-          }`}>By {post.username}</p>
-          <div className="flex items-center text-xs">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 mr-1 ${
-              theme === 'dark' ? 'text-red-400' : 'text-red-500'
-            }`}>
-              <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-            </svg>
-            <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>{post.likes}</span>
-          </div>
+          }`}>By {currentPost.username}</p>
+          
+          {/* Updated to use the LikeButton component */}
+          <LikeButton 
+            postId={currentPost.id}
+            likes={currentPost.likes}
+            liked={currentPost.liked}
+            onLike={handleLikeChanged}
+            size="sm"
+          />
         </div>
       </div>
     </div>

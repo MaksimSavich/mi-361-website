@@ -38,6 +38,19 @@ const HomePage: React.FC = () => {
     setPosts(posts.filter(post => post.id !== postId));
     setSelectedPost(null);
   };
+  
+  // Handle post updates (including likes)
+  const handlePostUpdated = (updatedPost: Post) => {
+    // Update the post in our state
+    setPosts(posts.map(post => 
+      post.id === updatedPost.id ? updatedPost : post
+    ));
+    
+    // If this is the currently selected post, update it too
+    if (selectedPost && selectedPost.id === updatedPost.id) {
+      setSelectedPost(updatedPost);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -79,6 +92,7 @@ const HomePage: React.FC = () => {
               key={post.id}
               post={post}
               onClick={() => setSelectedPost(post)}
+              // onPostUpdated={handlePostUpdated}
             />
           ))}
         </div>
@@ -89,6 +103,7 @@ const HomePage: React.FC = () => {
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
           onPostDeleted={() => handlePostDeleted(selectedPost.id)}
+          onPostUpdated={handlePostUpdated}
         />
       )}
     </div>

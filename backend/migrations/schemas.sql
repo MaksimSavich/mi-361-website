@@ -45,8 +45,20 @@ CREATE TABLE comments (
     updated_at TIMESTAMP NOT NULL
 );
 
+-- Post likes table
+CREATE TABLE post_likes (
+    id VARCHAR(36) PRIMARY KEY,
+    post_id VARCHAR(36) NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL,
+    UNIQUE(post_id, user_id)
+);
+
 -- Indexes
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_posts_user_id ON posts(user_id);
 CREATE INDEX idx_comments_post_id ON comments(post_id);
 CREATE INDEX idx_comments_user_id ON comments(user_id);
+
+CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
+CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);

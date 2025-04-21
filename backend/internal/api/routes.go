@@ -67,10 +67,15 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			posts.GET("/:id", postHandler.GetPost)
 			posts.POST("", middleware.AuthMiddleware(jwtService, db), postHandler.CreatePost)
 			posts.DELETE("/:id", middleware.AuthMiddleware(jwtService, db), postHandler.DeletePost)
-			posts.PUT("/:id", middleware.AuthMiddleware(jwtService, db), postHandler.UpdatePost) // Add this line
+			posts.PUT("/:id", middleware.AuthMiddleware(jwtService, db), postHandler.UpdatePost)
 			posts.POST("/:id/comments", middleware.AuthMiddleware(jwtService, db), postHandler.AddComment)
 			posts.DELETE("/comments/:id", middleware.AuthMiddleware(jwtService, db), postHandler.DeleteComment)
 			posts.PUT("/comments/:id", middleware.AuthMiddleware(jwtService, db), postHandler.UpdateComment)
+
+			// Add these new routes for likes
+			posts.POST("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.LikePost)
+			posts.DELETE("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.UnlikePost)
+			posts.GET("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.GetLikeStatus)
 		}
 	}
 
