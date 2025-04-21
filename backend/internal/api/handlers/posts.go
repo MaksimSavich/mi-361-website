@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -276,7 +277,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	postID := c.Param("id")
 
 	// Check if post exists and belongs to user
-	var postExists bool // Fixed: renamed 'exists' to 'postExists'
+	var postExists bool
 	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND user_id = $2)", postID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -324,14 +325,39 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	}
 
 	// Delete media from S3
-	// Note: This is done after the database transaction succeeds
-	// Extract path from URL
-	// This is a simplified example - in a real app, you'd need to properly parse the URL
-	path := mediaURL[strings.LastIndex(mediaURL, "/")+1:]
-	err = h.s3Client.DeleteFile(c.Request.Context(), path)
-	if err != nil {
-		// Just log the error - we don't want to fail the request if S3 deletion fails
-		// logger.Error("Failed to delete file from S3", "error", err)
+	// Parse the URL to extract the S3 object key
+	var s3Path string
+	parsedURL, err := url.Parse(mediaURL)
+	if err == nil {
+		// Extract path from the URL (removing the leading slash if present)
+		path := parsedURL.Path
+		if strings.HasPrefix(path, "/") {
+			path = path[1:]
+		}
+
+		// If the URL contains bucket name in the path (like s3.amazonaws.com/bucket-name/path)
+		if strings.Contains(parsedURL.Host, "s3.amazonaws.com") {
+			parts := strings.SplitN(path, "/", 2)
+			if len(parts) > 1 {
+				s3Path = parts[1] // Skip the bucket name in the path
+			} else {
+				s3Path = path
+			}
+		} else {
+			// For custom endpoints or path-style URLs
+			s3Path = path
+		}
+
+		// Try to delete the file
+		err = h.s3Client.DeleteFile(c.Request.Context(), s3Path)
+		if err != nil {
+			// Log the error but continue (don't fail the API call just because S3 deletion failed)
+			log.Printf("Failed to delete file from S3: %v, path: %s", err, s3Path)
+		} else {
+			log.Printf("Successfully deleted file from S3: %s", s3Path)
+		}
+	} else {
+		log.Printf("Failed to parse media URL for S3 deletion: %v, URL: %s", err, mediaURL)
 	}
 
 	// Return success
@@ -419,7 +445,7 @@ func (h *PostHandler) DeleteComment(c *gin.Context) {
 	commentID := c.Param("id")
 
 	// Check if comment exists and belongs to user
-	var commentExists bool // Fixed: renamed 'exists' to 'commentExists'
+	var commentExists bool
 	err := h.db.Get(&commentExists, "SELECT EXISTS(SELECT 1 FROM comments WHERE id = $1 AND user_id = $2)", commentID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -504,7 +530,6 @@ func (h *PostHandler) UpdateComment(c *gin.Context) {
 	c.JSON(http.StatusOK, comment)
 }
 
-// UpdatePost updates a post's caption
 func (h *PostHandler) UpdatePost(c *gin.Context) {
 	// Get user ID from context
 	userID, exists := c.Get("userID")

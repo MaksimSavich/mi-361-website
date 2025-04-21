@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"backend/configs"
@@ -137,13 +139,39 @@ func (s *S3Client) GetPresignedURL(ctx context.Context, s3Path string, duration 
 
 // DeleteFile deletes a file from S3
 func (s *S3Client) DeleteFile(ctx context.Context, s3Path string) error {
+	// Log the deletion attempt for debugging
+	log.Printf("Attempting to delete file from S3: bucket=%s, key=%s", s.bucket, s3Path)
+
+	// Check if path contains full URL (common mistake)
+	if strings.HasPrefix(s3Path, "http://") || strings.HasPrefix(s3Path, "https://") {
+		parsedURL, err := url.Parse(s3Path)
+		if err != nil {
+			return fmt.Errorf("invalid URL format for S3 path: %w", err)
+		}
+
+		// Extract path from URL
+		s3Path = parsedURL.Path
+		if strings.HasPrefix(s3Path, "/") {
+			s3Path = s3Path[1:]
+		}
+
+		// If path still contains bucket name, remove it
+		if strings.HasPrefix(s3Path, s.bucket+"/") {
+			s3Path = strings.TrimPrefix(s3Path, s.bucket+"/")
+		}
+	}
+
+	// Execute the delete operation
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(s3Path),
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to delete file from S3: %w", err)
 	}
 
+	// Log success
+	log.Printf("Successfully deleted file from S3: bucket=%s, key=%s", s.bucket, s3Path)
 	return nil
 }
