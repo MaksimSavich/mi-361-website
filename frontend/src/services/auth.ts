@@ -10,6 +10,7 @@ export interface RegisterData {
   username: string;
   email: string;
   password: string;
+  inviteCode: string; // New field
   name?: string;
   phoneNumber?: string;
 }

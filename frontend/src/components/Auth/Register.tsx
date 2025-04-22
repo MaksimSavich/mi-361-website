@@ -9,6 +9,7 @@ const Register: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    inviteCode: '', // New field
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,6 +39,11 @@ const Register: React.FC = () => {
       return;
     }
     
+    if (!formData.inviteCode.trim()) {
+      setError('Invite code is required');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -46,12 +52,13 @@ const Register: React.FC = () => {
         username: formData.username,
         email: formData.email,
         password: formData.password,
+        inviteCode: formData.inviteCode, // Include invite code
       });
       
       navigate('/login', { state: { message: 'Registration successful! Please log in.' } });
     } catch (err: any) {
       setError(
-        err.response?.data?.message || 
+        err.response?.data?.error || 
         'Registration failed. Please try again.'
       );
     } finally {
@@ -138,7 +145,7 @@ const Register: React.FC = () => {
             </p>
           </div>
           
-          <div className="mb-6">
+          <div className="mb-4">
             <label className={`block mb-2 ${
               theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
             }`}>Confirm Password</label>
@@ -154,6 +161,29 @@ const Register: React.FC = () => {
               }`}
               required
             />
+          </div>
+          
+          <div className="mb-6">
+            <label className={`block mb-2 ${
+              theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+            }`}>Invite Code</label>
+            <input
+              type="text"
+              name="inviteCode"
+              value={formData.inviteCode}
+              onChange={handleChange}
+              className={`w-full border rounded px-3 py-2 ${
+                theme === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white'
+                  : 'bg-white border-gray-300 text-gray-800'
+              }`}
+              required
+            />
+            <p className={`text-xs mt-1 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              An invite code is required to register
+            </p>
           </div>
           
           <button

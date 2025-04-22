@@ -1,3 +1,4 @@
+// backend/internal/models/user.go (modified)
 package models
 
 import (
@@ -14,6 +15,7 @@ type User struct {
 	Name           sql.NullString `json:"name,omitempty" db:"name"`
 	PhoneNumber    sql.NullString `json:"phoneNumber,omitempty" db:"phone_number"`
 	ProfilePicture sql.NullString `json:"profilePicture,omitempty" db:"profile_picture"`
+	IsAdmin        bool           `json:"isAdmin" db:"is_admin"`
 	CreatedAt      time.Time      `json:"createdAt" db:"created_at"`
 	UpdatedAt      time.Time      `json:"updatedAt" db:"updated_at"`
 }
@@ -26,6 +28,7 @@ type UserResponse struct {
 	Name           string    `json:"name,omitempty"`
 	PhoneNumber    string    `json:"phoneNumber,omitempty"`
 	ProfilePicture string    `json:"profilePicture,omitempty"`
+	IsAdmin        bool      `json:"isAdmin"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 

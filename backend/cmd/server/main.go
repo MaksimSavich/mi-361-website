@@ -1,3 +1,4 @@
+// backend/cmd/server/main.go (modified)
 package main
 
 import (
@@ -12,13 +13,13 @@ import (
 	"backend/configs"
 	"backend/internal/api"
 	"backend/internal/database"
+	"backend/internal/services/admin"
 	"backend/internal/storage"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
-
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Load environment variables
@@ -44,6 +45,12 @@ func main() {
 		log.Fatalf("Failed to initialize database schema: %v", err)
 	}
 
+	// Initialize admin account
+	adminService := admin.NewAdminService(db)
+	if err := adminService.InitializeAdmin(); err != nil {
+		log.Fatalf("Failed to initialize admin account: %v", err)
+	}
+
 	// Initialize S3 client
 	s3Client, err := storage.NewS3Client(config.S3)
 	if err != nil {
@@ -51,7 +58,7 @@ func main() {
 	}
 
 	// Initialize router
-	router := api.SetupRouter(db, s3Client, config)
+	router := api.SetupRouter(db, s3Client, config, adminService)
 
 	// Create HTTP server
 	server := &http.Server{

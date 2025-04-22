@@ -11,11 +11,18 @@ import LikeButton from './LikeButton';
 interface PostDetailProps {
   post: Post;
   onClose: () => void;
-  onPostDeleted?: () => void;
+  onPostDeleted?: (postId: string) => void;
   onPostUpdated?: (updatedPost: Post) => void;
+  isAdmin?: boolean; // New prop
 }
 
-const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted, onPostUpdated }) => {
+const PostDetail: React.FC<PostDetailProps> = ({ 
+  post, 
+  onClose, 
+  onPostDeleted, 
+  onPostUpdated,
+  isAdmin = false // Default to false
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
@@ -39,8 +46,8 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted, o
   // Ensure post.comments exists, defaulting to empty array if undefined
   const comments = currentPost.comments || [];
   
-  // Check if current user is the owner of the post
-  const isPostOwner = isAuthenticated && user?.id === currentPost.userId;
+  // Check if current user is the owner of the post or is an admin
+  const isPostOwner = isAdmin || (isAuthenticated && user?.id === currentPost.userId);
 
   // Handler for post deletion
   const handleDeletePost = async () => {
@@ -52,7 +59,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onClose, onPostDeleted, o
       
       // Notify parent component about deletion
       if (onPostDeleted) {
-        onPostDeleted();
+        onPostDeleted(currentPost.id);
       }
       
       onClose();

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"backend/internal/models"
+	"backend/internal/services/admin"
 	"backend/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
@@ -127,6 +128,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password    string `json:"password" binding:"required,min=8"`
 		Name        string `json:"name"`
 		PhoneNumber string `json:"phoneNumber"`
+		InviteCode  string `json:"inviteCode" binding:"required"` // Now required
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -134,9 +136,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Check if invite code is valid
+	adminService := admin.NewAdminService(h.db)
+	isValid, err := adminService.ValidateInviteCode(req.InviteCode)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate invite code"})
+		return
+	}
+	if !isValid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired invite code"})
+		return
+	}
+
 	// Check if username already exists
 	var exists bool
-	err := h.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username)
+	err = h.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -168,12 +182,34 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	userID := uuid.New().String()
 	now := time.Now()
 
-	_, err = h.db.Exec(
+	// Start transaction
+	tx, err := h.db.Beginx()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Insert user
+	_, err = tx.Exec(
 		"INSERT INTO users (id, username, email, password_hash, name, phone_number, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		userID, req.Username, req.Email, hashedPassword, req.Name, req.PhoneNumber, now, now,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	// Mark invite code as used
+	err = adminService.MarkInviteCodeUsed(req.InviteCode, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark invite code as used"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 

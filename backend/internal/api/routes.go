@@ -4,6 +4,7 @@ import (
 	"backend/configs"
 	"backend/internal/api/handlers"
 	"backend/internal/api/middleware"
+	"backend/internal/services/admin"
 	"backend/internal/services/auth"
 	"backend/internal/storage"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // SetupRouter configures the API routes
-func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config) *gin.Engine {
+func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config, adminService *admin.AdminService) *gin.Engine {
 	// Create JWT service
 	jwtService := auth.NewJWTService(config.JWT)
 
@@ -20,6 +21,7 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 	authHandler := handlers.NewAuthHandler(db, jwtService)
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db, s3Client)
+	adminHandler := handlers.NewAdminHandler(db, adminService)
 
 	// Create router
 	router := gin.Default()
@@ -76,6 +78,23 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			posts.POST("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.LikePost)
 			posts.DELETE("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.UnlikePost)
 			posts.GET("/:id/like", middleware.AuthMiddleware(jwtService, db), postHandler.GetLikeStatus)
+		}
+
+		// Admin routes
+		adminRoutes := api.Group("/admin")
+		adminRoutes.Use(middleware.AuthMiddleware(jwtService, db))
+		{
+			// Invite code management
+			adminRoutes.POST("/invite-codes", adminHandler.GenerateInviteCode)
+			adminRoutes.GET("/invite-codes", adminHandler.GetInviteCodes)
+
+			// User management
+			adminRoutes.GET("/users", adminHandler.GetAllUsers)
+			adminRoutes.DELETE("/users/:id", adminHandler.DeleteUser)
+
+			// Content moderation
+			adminRoutes.DELETE("/posts/:id", adminHandler.DeletePost)
+			adminRoutes.DELETE("/comments/:id", adminHandler.DeleteComment)
 		}
 	}
 

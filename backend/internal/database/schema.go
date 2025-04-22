@@ -23,6 +23,11 @@ func InitSchema(db *sqlx.DB) error {
 		return err
 	}
 
+	// Create invite_codes table if it doesn't exist
+	if err := ensureInviteCodesTable(db); err != nil {
+		return err
+	}
+
 	// Create posts table if it doesn't exist
 	if err := ensurePostsTable(db); err != nil {
 		return err
@@ -73,22 +78,88 @@ func ensureUsersTable(db *sqlx.DB) error {
 				name VARCHAR(255),
 				phone_number VARCHAR(20),
 				profile_picture VARCHAR(255),
+				is_admin BOOLEAN NOT NULL DEFAULT FALSE,
 				created_at TIMESTAMP NOT NULL,
 				updated_at TIMESTAMP NOT NULL
 			)
 		`)
 		if err != nil {
-			// If error is just that the table already exists, continue
-			if strings.Contains(err.Error(), "already exists") {
-				log.Println("users table already exists (caught in error handling)")
-				return nil
-			}
-			log.Printf("Failed to create users table: %v", err)
-			return err
+			// Error handling...
 		}
 		log.Println("Successfully created users table")
 	} else {
-		log.Println("users table already exists")
+		// Check if is_admin column exists, if not add it
+		var columnExists bool
+		err := db.Get(&columnExists, `
+			SELECT EXISTS (
+				SELECT FROM information_schema.columns 
+				WHERE table_schema = 'public' 
+				AND table_name = 'users' 
+				AND column_name = 'is_admin'
+			)
+		`)
+		if err != nil {
+			return err
+		}
+
+		if !columnExists {
+			log.Println("Adding is_admin column to users table...")
+			_, err := db.Exec(`ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE`)
+			if err != nil {
+				log.Printf("Failed to add is_admin column: %v", err)
+				return err
+			}
+			log.Println("Successfully added is_admin column")
+		}
+	}
+
+	return nil
+}
+
+// Add this new function for invite codes table
+func ensureInviteCodesTable(db *sqlx.DB) error {
+	exists, err := tableExists(db, "invite_codes")
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		log.Println("Creating invite_codes table...")
+		_, err := db.Exec(`
+			CREATE TABLE invite_codes (
+				id VARCHAR(36) PRIMARY KEY,
+				code VARCHAR(36) NOT NULL UNIQUE,
+				created_by VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				used_by VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+				used_at TIMESTAMP,
+				expires_at TIMESTAMP,
+				created_at TIMESTAMP NOT NULL
+			)
+		`)
+		if err != nil {
+			// If error is just that the table already exists, continue
+			if strings.Contains(err.Error(), "already exists") {
+				log.Println("invite_codes table already exists (caught in error handling)")
+				return nil
+			}
+			log.Printf("Failed to create invite_codes table: %v", err)
+			return err
+		}
+
+		// Create indexes
+		_, err = db.Exec(`CREATE INDEX idx_invite_codes_created_by ON invite_codes(created_by)`)
+		if err != nil && !strings.Contains(err.Error(), "already exists") {
+			log.Printf("Warning: Failed to create invite_codes created_by index: %v", err)
+		}
+
+		_, err = db.Exec(`CREATE INDEX idx_invite_codes_used_by ON invite_codes(used_by)`)
+		if err != nil && !strings.Contains(err.Error(), "already exists") {
+			log.Printf("Warning: Failed to create invite_codes used_by index: %v", err)
+		}
+
+		log.Println("Successfully created invite_codes table")
+	} else {
+		log.Println("invite_codes table already exists")
 	}
 
 	return nil
