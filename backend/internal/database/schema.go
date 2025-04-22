@@ -43,6 +43,11 @@ func InitSchema(db *sqlx.DB) error {
 		return err
 	}
 
+	// Create followers table if it doesn't exist
+	if err := ensureFollowersTable(db); err != nil {
+		return err
+	}
+
 	log.Println("Database schema initialization complete")
 	return nil
 }
@@ -351,6 +356,52 @@ func ensurePostLikesTable(db *sqlx.DB) error {
 		log.Println("Successfully created post_likes table")
 	} else {
 		log.Println("post_likes table already exists")
+	}
+
+	return nil
+}
+
+func ensureFollowersTable(db *sqlx.DB) error {
+	exists, err := tableExists(db, "followers")
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		log.Println("Creating followers table...")
+		_, err := db.Exec(`
+			CREATE TABLE followers (
+				id VARCHAR(36) PRIMARY KEY,
+				follower_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				followed_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at TIMESTAMP NOT NULL,
+				UNIQUE(follower_id, followed_id)
+			)
+		`)
+		if err != nil {
+			// If error is just that the table already exists, continue
+			if strings.Contains(err.Error(), "already exists") {
+				log.Println("followers table already exists (caught in error handling)")
+				return nil
+			}
+			log.Printf("Failed to create followers table: %v", err)
+			return err
+		}
+
+		// Create indexes
+		_, err = db.Exec(`CREATE INDEX idx_followers_follower_id ON followers(follower_id)`)
+		if err != nil && !strings.Contains(err.Error(), "already exists") {
+			log.Printf("Warning: Failed to create followers follower_id index: %v", err)
+		}
+
+		_, err = db.Exec(`CREATE INDEX idx_followers_followed_id ON followers(followed_id)`)
+		if err != nil && !strings.Contains(err.Error(), "already exists") {
+			log.Printf("Warning: Failed to create followers followed_id index: %v", err)
+		}
+
+		log.Println("Successfully created followers table")
+	} else {
+		log.Println("followers table already exists")
 	}
 
 	return nil

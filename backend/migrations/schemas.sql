@@ -54,6 +54,14 @@ CREATE TABLE post_likes (
     UNIQUE(post_id, user_id)
 );
 
+CREATE TABLE followers (
+    id VARCHAR(36) PRIMARY KEY,
+    follower_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    followed_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL,
+    UNIQUE(follower_id, followed_id)
+);
+
 -- Indexes
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_posts_user_id ON posts(user_id);
@@ -62,3 +70,6 @@ CREATE INDEX idx_comments_user_id ON comments(user_id);
 
 CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
 CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+
+CREATE INDEX idx_followers_follower_id ON followers(follower_id);
+CREATE INDEX idx_followers_followed_id ON followers(followed_id);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../Auth/AuthContext';
 import api from '../../services/api';
 import { Post } from '../../types/Post';
@@ -12,9 +13,14 @@ const ProfilePage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [activeTab, setActiveTab] = useState<'posts' | 'sessions' | 'edit'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'followers' | 'following' | 'sessions' | 'edit'>('posts');
   const [loading, setLoading] = useState(true);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const { theme } = useTheme();
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserPosts = async () => {
@@ -34,6 +40,52 @@ const ProfilePage: React.FC = () => {
     };
 
     fetchUserPosts();
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    const fetchTabData = async () => {
+      if (!isAuthenticated || !user || (activeTab !== 'followers' && activeTab !== 'following')) return;
+      
+      setTabLoading(true);
+      try {
+        if (activeTab === 'followers') {
+          const response = await api.get(`/follow/${user.id}/followers`);
+          setFollowers(response.data || []);
+        } else if (activeTab === 'following') {
+          const response = await api.get(`/follow/${user.id}/following`);
+          setFollowing(response.data || []);
+        }
+      } catch (err) {
+        console.error(`Failed to fetch ${activeTab}:`, err);
+      } finally {
+        setTabLoading(false);
+      }
+    };
+    
+    fetchTabData();
+  }, [isAuthenticated, user, activeTab]);
+
+  // Fetch follower and following counts
+  useEffect(() => {
+    const fetchFollowCounts = async () => {
+      if (!isAuthenticated || !user) {
+        return;
+      }
+
+      try {
+        // Get follower count
+        const followersResponse = await api.get(`/follow/${user.id}/followers`);
+        setFollowerCount(followersResponse.data.length);
+        
+        // Get following count
+        const followingResponse = await api.get(`/follow/${user.id}/following`);
+        setFollowingCount(followingResponse.data.length);
+      } catch (error) {
+        console.error('Failed to fetch follow counts:', error);
+      }
+    };
+
+    fetchFollowCounts();
   }, [isAuthenticated, user]);
 
   // Handle post deletion
@@ -91,19 +143,27 @@ const ProfilePage: React.FC = () => {
             <p className={theme === 'dark' ? 'text-gray-300 mb-4' : 'text-gray-600 mb-4'}>
               {user.name || ''}
             </p>
-            <div className={`flex space-x-4 mb-4 ${
+            <div className={`flex space-x-6 mb-4 ${
               theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
             }`}>
               <div>
                 <span className="font-bold">{posts.length}</span> posts
               </div>
-              <div>
-                <span className="font-bold">0</span> followers
-              </div>
-              <div>
-                <span className="font-bold">0</span> following
-              </div>
+              <Link to={`/users/${user.id}?tab=followers`} className="hover:underline">
+                <span className="font-bold">{followerCount}</span> followers
+              </Link>
+              <Link to={`/users/${user.id}?tab=following`} className="hover:underline">
+                <span className="font-bold">{followingCount}</span> following
+              </Link>
             </div>
+            
+            <Link to="/feed" className={`inline-block px-4 py-2 rounded-full text-sm ${
+              theme === 'dark'
+                ? 'bg-accent-dark text-white'
+                : 'bg-primary-light text-white'
+            }`}>
+              View Following Feed
+            </Link>
           </div>
         </div>
       </div>
@@ -112,51 +172,249 @@ const ProfilePage: React.FC = () => {
         theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
       }`}>
         <nav className="flex space-x-8">
-          <button
-            className={`py-4 font-medium ${
-              activeTab === 'posts' 
-                ? theme === 'dark' 
-                  ? 'border-b-2 border-white text-white' 
-                  : 'border-b-2 border-black text-black'
-                : theme === 'dark'
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-500 hover:text-gray-800'
-            }`}
-            onClick={() => setActiveTab('posts')}
-          >
-            Posts
-          </button>
-          <button
-            className={`py-4 font-medium ${
-              activeTab === 'edit'
-                ? theme === 'dark' 
-                  ? 'border-b-2 border-white text-white' 
-                  : 'border-b-2 border-black text-black'
-                : theme === 'dark'
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-500 hover:text-gray-800'
-            }`}
-            onClick={() => setActiveTab('edit')}
-          >
-            Edit Profile
-          </button>
-          <button
-            className={`py-4 font-medium ${
-              activeTab === 'sessions'
-                ? theme === 'dark' 
-                  ? 'border-b-2 border-white text-white' 
-                  : 'border-b-2 border-black text-black'
-                : theme === 'dark'
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-500 hover:text-gray-800'
-            }`}
-            onClick={() => setActiveTab('sessions')}
-          >
-            Sessions
-          </button>
-        </nav>
-      </div>
+  <button
+    className={`py-4 font-medium ${
+      activeTab === 'posts' 
+        ? theme === 'dark' 
+          ? 'border-b-2 border-white text-white' 
+          : 'border-b-2 border-black text-black'
+        : theme === 'dark'
+          ? 'text-gray-400 hover:text-gray-200'
+          : 'text-gray-500 hover:text-gray-800'
+    }`}
+    onClick={() => setActiveTab('posts')}
+  >
+    Posts
+  </button>
+  <button
+    className={`py-4 font-medium ${
+      activeTab === 'followers'
+        ? theme === 'dark' 
+          ? 'border-b-2 border-white text-white' 
+          : 'border-b-2 border-black text-black'
+        : theme === 'dark'
+          ? 'text-gray-400 hover:text-gray-200'
+          : 'text-gray-500 hover:text-gray-800'
+    }`}
+    onClick={() => setActiveTab('followers')}
+  >
+    Followers
+  </button>
+  <button
+    className={`py-4 font-medium ${
+      activeTab === 'following'
+        ? theme === 'dark' 
+          ? 'border-b-2 border-white text-white' 
+          : 'border-b-2 border-black text-black'
+        : theme === 'dark'
+          ? 'text-gray-400 hover:text-gray-200'
+          : 'text-gray-500 hover:text-gray-800'
+    }`}
+    onClick={() => setActiveTab('following')}
+  >
+    Following
+  </button>
+  <button
+    className={`py-4 font-medium ${
+      activeTab === 'edit'
+        ? theme === 'dark' 
+          ? 'border-b-2 border-white text-white' 
+          : 'border-b-2 border-black text-black'
+        : theme === 'dark'
+          ? 'text-gray-400 hover:text-gray-200'
+          : 'text-gray-500 hover:text-gray-800'
+    }`}
+    onClick={() => setActiveTab('edit')}
+  >
+    Edit Profile
+  </button>
+  <button
+    className={`py-4 font-medium ${
+      activeTab === 'sessions'
+        ? theme === 'dark' 
+          ? 'border-b-2 border-white text-white' 
+          : 'border-b-2 border-black text-black'
+        : theme === 'dark'
+          ? 'text-gray-400 hover:text-gray-200'
+          : 'text-gray-500 hover:text-gray-800'
+    }`}
+    onClick={() => setActiveTab('sessions')}
+  >
+    Sessions
+  </button>
+</nav>
 
+// Add UI for followers and following tabs
+{activeTab === 'followers' && (
+  <div>
+    {tabLoading ? (
+      <div className="flex justify-center py-8">
+        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+          theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
+        }`}></div>
+      </div>
+    ) : followers.length === 0 ? (
+      <div className={`text-center py-8 ${
+        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+      }`}>
+        <p className="text-lg">No followers yet</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {followers.map(follower => (
+          <div key={follower.id} className={`p-4 rounded-lg ${
+            theme === 'dark' ? 'bg-gray-800' : 'bg-white border border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center overflow-hidden ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
+                  {follower.profilePicture ? (
+                    <img
+                      src={follower.profilePicture}
+                      alt={follower.username}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className={`text-lg font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`}>
+                      {follower.username.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="ml-3">
+                  <Link
+                    to={`/users/${follower.id}`}
+                    className={`text-sm font-medium hover:underline ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`}
+                  >
+                    {follower.username}
+                  </Link>
+                  {follower.name && (
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {follower.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {follower.id !== user.id && (
+                <div>
+                  {follower.isFollowing ? (
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      theme === 'dark' 
+                        ? 'bg-gray-700 text-gray-300' 
+                        : 'bg-gray-200 text-gray-800'
+                    }`}>
+                      Following
+                    </span>
+                  ) : (
+                    <button
+                      className={`px-4 py-1 text-xs rounded-full ${
+                        theme === 'dark'
+                          ? 'bg-accent-dark text-white'
+                          : 'bg-primary-light text-white'
+                      }`}
+                      onClick={() => {
+                        // Follow logic here
+                      }}
+                    >
+                      Follow
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+{activeTab === 'following' && (
+  <div>
+    {tabLoading ? (
+      <div className="flex justify-center py-8">
+        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+          theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
+        }`}></div>
+      </div>
+    ) : following.length === 0 ? (
+      <div className={`text-center py-8 ${
+        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+      }`}>
+        <p className="text-lg">Not following anyone yet</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {following.map(followedUser => (
+          <div key={followedUser.id} className={`p-4 rounded-lg ${
+            theme === 'dark' ? 'bg-gray-800' : 'bg-white border border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center overflow-hidden ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
+                  {followedUser.profilePicture ? (
+                    <img
+                      src={followedUser.profilePicture}
+                      alt={followedUser.username}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className={`text-lg font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`}>
+                      {followedUser.username.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="ml-3">
+                  <Link
+                    to={`/users/${followedUser.id}`}
+                    className={`text-sm font-medium hover:underline ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`}
+                  >
+                    {followedUser.username}
+                  </Link>
+                  {followedUser.name && (
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {followedUser.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <button
+                className={`px-4 py-1 text-xs rounded-full ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 text-white border border-gray-600'
+                    : 'bg-gray-200 text-gray-800 border border-gray-300'
+                }`}
+                onClick={() => {
+                  // Unfollow logic here
+                }}
+              >
+                Following
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+      </div>
       {activeTab === 'posts' && (
         <div>
           {loading ? (

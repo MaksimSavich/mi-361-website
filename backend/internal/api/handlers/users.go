@@ -331,3 +331,81 @@ func (h *UserHandler) GetUserPosts(c *gin.Context) {
 	// Return posts
 	c.JSON(http.StatusOK, posts)
 }
+
+func (h *UserHandler) GetUserProfile(c *gin.Context) {
+	// Get user ID from URL
+	userID := c.Param("id")
+
+	// Get user
+	var user models.User
+	err := h.db.Get(
+		&user,
+		"SELECT * FROM users WHERE id = $1",
+		userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Handle NULL values when creating user response
+	name := ""
+	if user.Name.Valid {
+		name = user.Name.String
+	}
+
+	phoneNumber := ""
+	if user.PhoneNumber.Valid {
+		phoneNumber = user.PhoneNumber.String
+	}
+
+	profilePicture := ""
+	if user.ProfilePicture.Valid {
+		profilePicture = user.ProfilePicture.String
+	}
+
+	// Get follower counts
+	var followerCount int
+	err = h.db.Get(&followerCount, "SELECT COUNT(*) FROM followers WHERE followed_id = $1", userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get follower count"})
+		return
+	}
+
+	var followingCount int
+	err = h.db.Get(&followingCount, "SELECT COUNT(*) FROM followers WHERE follower_id = $1", userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get following count"})
+		return
+	}
+
+	// Check if current user is following this user
+	isFollowing := false
+	if currentUserID, exists := c.Get("userID"); exists {
+		err = h.db.Get(&isFollowing, "SELECT EXISTS(SELECT 1 FROM followers WHERE follower_id = $1 AND followed_id = $2)", currentUserID, userID)
+		if err != nil {
+			// Just ignore the error and set to false
+			isFollowing = false
+		}
+	}
+
+	// Create user response with follower counts
+	userResponse := models.UserWithFollowCount{
+		UserResponse: models.UserResponse{
+			ID:             user.ID,
+			Username:       user.Username,
+			Email:          user.Email,
+			Name:           name,
+			PhoneNumber:    phoneNumber,
+			ProfilePicture: profilePicture,
+			IsAdmin:        user.IsAdmin,
+			CreatedAt:      user.CreatedAt,
+		},
+		FollowerCount:  followerCount,
+		FollowingCount: followingCount,
+		IsFollowing:    isFollowing,
+	}
+
+	// Return user
+	c.JSON(http.StatusOK, userResponse)
+}

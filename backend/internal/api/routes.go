@@ -22,6 +22,7 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db, s3Client)
 	adminHandler := handlers.NewAdminHandler(db, adminService)
+	followerHandler := handlers.NewFollowerHandler(db)
 
 	// Create router
 	router := gin.Default()
@@ -99,6 +100,27 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			adminRoutes.DELETE("/comments/:id", adminHandler.DeleteComment)
 			adminRoutes.GET("/comments", adminHandler.GetAllComments)
 		}
+
+		// User profile with follower counts
+		users.GET("/:id/profile", userHandler.GetUserProfile)
+
+		follow := api.Group("/follow")
+		{
+			// Protected routes (require authentication)
+			follow.POST("/:id", middleware.AuthMiddleware(jwtService, db), followerHandler.FollowUser)
+			follow.DELETE("/:id", middleware.AuthMiddleware(jwtService, db), followerHandler.UnfollowUser)
+			follow.GET("/:id/status", middleware.AuthMiddleware(jwtService, db), followerHandler.GetFollowStatus)
+
+			// Public routes (no authentication required, but enhanced if authenticated)
+			follow.GET("/:id/followers", followerHandler.GetFollowers)
+			follow.GET("/:id/following", followerHandler.GetFollowing)
+
+			// Following feed (requires authentication)
+			follow.GET("/feed", middleware.AuthMiddleware(jwtService, db), followerHandler.GetFollowingPostsFeed)
+		}
+
+		// User search route (public but enhanced if authenticated)
+		api.GET("/users/search", followerHandler.SearchUsers)
 
 	}
 
