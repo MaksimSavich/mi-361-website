@@ -201,8 +201,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Mark invite code as used
-	err = adminService.MarkInviteCodeUsed(req.InviteCode, userID)
+	// Mark invite code as used within the transaction
+	_, err = tx.Exec(
+		"UPDATE invite_codes SET used_by = $1, used_at = $2 WHERE code = $3",
+		userID, now, req.InviteCode,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark invite code as used"})
 		return

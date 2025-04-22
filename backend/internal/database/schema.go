@@ -126,16 +126,16 @@ func ensureInviteCodesTable(db *sqlx.DB) error {
 	if !exists {
 		log.Println("Creating invite_codes table...")
 		_, err := db.Exec(`
-			CREATE TABLE invite_codes (
-				id VARCHAR(36) PRIMARY KEY,
-				code VARCHAR(36) NOT NULL UNIQUE,
-				created_by VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-				used_by VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
-				used_at TIMESTAMP,
-				expires_at TIMESTAMP,
-				created_at TIMESTAMP NOT NULL
-			)
-		`)
+            CREATE TABLE invite_codes (
+                id VARCHAR(36) PRIMARY KEY,
+                code VARCHAR(36) NOT NULL UNIQUE,
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                used_by VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+                used_at TIMESTAMP,
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL
+            )
+        `)
 		if err != nil {
 			// If error is just that the table already exists, continue
 			if strings.Contains(err.Error(), "already exists") {
@@ -155,6 +155,12 @@ func ensureInviteCodesTable(db *sqlx.DB) error {
 		_, err = db.Exec(`CREATE INDEX idx_invite_codes_used_by ON invite_codes(used_by)`)
 		if err != nil && !strings.Contains(err.Error(), "already exists") {
 			log.Printf("Warning: Failed to create invite_codes used_by index: %v", err)
+		}
+
+		// Create index on code for faster lookup
+		_, err = db.Exec(`CREATE INDEX idx_invite_codes_code ON invite_codes(code)`)
+		if err != nil && !strings.Contains(err.Error(), "already exists") {
+			log.Printf("Warning: Failed to create invite_codes code index: %v", err)
 		}
 
 		log.Println("Successfully created invite_codes table")

@@ -128,8 +128,12 @@ func (s *AdminService) GenerateInviteCode(adminID string, expiryDays int) (*mode
 func (s *AdminService) GetInviteCodes() ([]models.InviteCode, error) {
 	var invites []models.InviteCode
 	err := s.db.Select(&invites, `
-		SELECT * FROM invite_codes ORDER BY created_at DESC
-	`)
+        SELECT ic.*, 
+            u.username AS used_by_username
+        FROM invite_codes ic
+        LEFT JOIN users u ON ic.used_by = u.id
+        ORDER BY ic.created_at DESC
+    `)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get invite codes: %w", err)
 	}
@@ -139,12 +143,24 @@ func (s *AdminService) GetInviteCodes() ([]models.InviteCode, error) {
 
 // ValidateInviteCode checks if an invite code is valid
 func (s *AdminService) ValidateInviteCode(code string) (bool, error) {
+	// First, check if the code exists
+	var exists bool
+	err := s.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM invite_codes WHERE code = $1)", code)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if invite code exists: %w", err)
+	}
+
+	if !exists {
+		return false, nil
+	}
+
+	// Now check if it's valid (not used and not expired)
 	var count int
-	err := s.db.Get(&count, `
-		SELECT COUNT(*) FROM invite_codes 
-		WHERE code = $1 AND used_by IS NULL 
-		AND (expires_at IS NULL OR expires_at > NOW())
-	`, code)
+	err = s.db.Get(&count, `
+        SELECT COUNT(*) FROM invite_codes 
+        WHERE code = $1 AND used_by IS NULL 
+        AND (expires_at IS NULL OR expires_at > NOW())
+    `, code)
 	if err != nil {
 		return false, fmt.Errorf("failed to validate invite code: %w", err)
 	}
@@ -155,12 +171,22 @@ func (s *AdminService) ValidateInviteCode(code string) (bool, error) {
 // MarkInviteCodeUsed marks an invite code as used
 func (s *AdminService) MarkInviteCodeUsed(code string, userID string) error {
 	now := time.Now()
-	_, err := s.db.Exec(
-		"UPDATE invite_codes SET used_by = $1, used_at = $2 WHERE code = $3",
+	result, err := s.db.Exec(
+		"UPDATE invite_codes SET used_by = $1, used_at = $2 WHERE code = $3 AND used_by IS NULL",
 		userID, now, code,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to mark invite code as used: %w", err)
+	}
+
+	// Check if any rows were affected (the code exists and wasn't already used)
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("invite code already used or does not exist")
 	}
 
 	return nil

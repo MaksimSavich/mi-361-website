@@ -21,10 +21,13 @@ const ContentModeration: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get('/posts');
-      setPosts(response.data);
+      // Initialize with empty array if response.data is null or undefined
+      setPosts(response.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch posts');
       console.error('Error fetching posts:', err);
+      // Make sure to set posts to empty array if request fails
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -34,12 +37,12 @@ const ContentModeration: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
       return;
     }
-  
+
     setError(null);
     setSuccess(null);
     
     try {
-      await api.delete(`/admin/posts/${postId}`); // Make sure this is using the admin endpoint
+      await api.delete(`/admin/posts/${postId}`);
       setSuccess('Post deleted successfully');
       
       // Remove post from list
@@ -54,6 +57,9 @@ const ContentModeration: React.FC = () => {
       console.error('Error deleting post:', err);
     }
   };
+
+  // Use posts?.length to safely check length
+  const hasPosts = Array.isArray(posts) && posts.length > 0;
 
   return (
     <div>
@@ -89,7 +95,7 @@ const ContentModeration: React.FC = () => {
             theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
           }`}></div>
         </div>
-      ) : posts.length === 0 ? (
+      ) : !hasPosts ? (
         <p className={`text-center py-8 ${
           theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
         }`}>
@@ -121,9 +127,8 @@ const ContentModeration: React.FC = () => {
         <PostDetail
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
-          onPostDeleted={() => {
-            // Fix: Pass the post ID here
-            setPosts(posts.filter(p => p.id !== selectedPost.id));
+          onPostDeleted={(postId) => {
+            setPosts(posts.filter(p => p.id !== postId));
             setSelectedPost(null);
           }}
           isAdmin={true}

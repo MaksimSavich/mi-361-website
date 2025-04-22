@@ -1,13 +1,14 @@
-// frontend/src/components/Admin/AdminPage.tsx (new file)
 import React, { useState } from 'react';
 import { useAuth } from '../Auth/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import UserManagement from './UserManagement';
 import InviteCodeManagement from './InviteCodeManagement';
 import ContentModeration from './ContentModeration';
+import CommentModeration from './CommentModeration'; // Import the new component
 
 const AdminPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'invites' | 'content'>('users');
+  // Update the type to include 'comments'
+  const [activeTab, setActiveTab] = useState<'users' | 'invites' | 'content' | 'comments'>('users');
   const { user, isAuthenticated } = useAuth();
   const { theme } = useTheme();
 
@@ -32,7 +33,7 @@ const AdminPage: React.FC = () => {
       <div className={`border-b mb-6 ${
         theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
       }`}>
-        <nav className="flex space-x-8">
+        <nav className="flex flex-wrap space-x-4 md:space-x-8">
           <button
             className={`py-4 font-medium ${
               activeTab === 'users' 
@@ -45,7 +46,7 @@ const AdminPage: React.FC = () => {
             }`}
             onClick={() => setActiveTab('users')}
           >
-            User Management
+            Users
           </button>
           <button
             className={`py-4 font-medium ${
@@ -73,7 +74,21 @@ const AdminPage: React.FC = () => {
             }`}
             onClick={() => setActiveTab('content')}
           >
-            Content Moderation
+            Posts
+          </button>
+          <button
+            className={`py-4 font-medium ${
+              activeTab === 'comments'
+                ? theme === 'dark' 
+                  ? 'border-b-2 border-white text-white' 
+                  : 'border-b-2 border-black text-black'
+                : theme === 'dark'
+                  ? 'text-gray-400 hover:text-gray-200'
+                  : 'text-gray-500 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('comments')}
+          >
+            Comments
           </button>
         </nav>
       </div>
@@ -81,6 +96,7 @@ const AdminPage: React.FC = () => {
       {activeTab === 'users' && <UserManagement />}
       {activeTab === 'invites' && <InviteCodeManagement />}
       {activeTab === 'content' && <ContentModeration />}
+      {activeTab === 'comments' && <CommentModeration />}
     </div>
   );
 };

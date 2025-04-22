@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"backend/internal/models"
 	"backend/internal/services/admin"
 
 	"github.com/gin-gonic/gin"
@@ -372,4 +373,43 @@ func (h *AdminHandler) DeleteComment(c *gin.Context) {
 
 	// Return success
 	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully by admin"})
+}
+
+func (h *AdminHandler) DeleteInviteCode(c *gin.Context) {
+	// Get invite code ID from URL
+	inviteCodeID := c.Param("id")
+
+	// Delete invite code
+	_, err := h.db.Exec("DELETE FROM invite_codes WHERE id = $1", inviteCodeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete invite code"})
+		return
+	}
+
+	// Return success
+	c.JSON(http.StatusOK, gin.H{"message": "Invite code deleted successfully"})
+}
+
+func (h *AdminHandler) GetAllComments(c *gin.Context) {
+	// Get comments with post information
+	var comments []struct {
+		models.Comment
+		PostTitle string `json:"postTitle" db:"post_title"`
+	}
+
+	err := h.db.Select(&comments, `
+        SELECT c.*, u.username, p.caption as post_title 
+        FROM comments c 
+        JOIN users u ON c.user_id = u.id 
+        JOIN posts p ON c.post_id = p.id
+        ORDER BY c.created_at DESC 
+        LIMIT 100
+    `)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get comments"})
+		return
+	}
+
+	// Return comments
+	c.JSON(http.StatusOK, comments)
 }

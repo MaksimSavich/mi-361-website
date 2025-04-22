@@ -404,6 +404,7 @@ const PostDetail: React.FC<PostDetailProps> = ({
             onPostUpdate={() => {
               // Reload comments if needed
             }}
+            isAdmin={isAdmin} // Pass the isAdmin prop
           />
         </div>
       </div>

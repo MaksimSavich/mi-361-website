@@ -1,17 +1,17 @@
-// frontend/src/components/Admin/InviteCodeManagement.tsx (new file)
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 
 interface InviteCode {
-  id: string;
-  code: string;
-  createdBy: string;
-  usedBy?: string;
-  usedAt?: string;
-  expiresAt?: string;
-  createdAt: string;
-}
+    id: string;
+    code: string;
+    createdBy: string;
+    usedBy?: string;
+    usedByUsername?: string;
+    usedAt?: string;
+    expiresAt?: string;
+    createdAt: string;
+  }
 
 const InviteCodeManagement: React.FC = () => {
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
@@ -29,10 +29,13 @@ const InviteCodeManagement: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get('/admin/invite-codes');
-      setInviteCodes(response.data);
+      // Initialize with empty array if response.data is null or undefined
+      setInviteCodes(response.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch invite codes');
       console.error('Error fetching invite codes:', err);
+      // Make sure to set inviteCodes to empty array if request fails
+      setInviteCodes([]);
     } finally {
       setLoading(false);
     }
@@ -46,11 +49,38 @@ const InviteCodeManagement: React.FC = () => {
       const response = await api.post('/admin/invite-codes', { expiryDays });
       setSuccess(`New invite code generated: ${response.data.code}`);
       
-      // Add new code to the list
-      setInviteCodes([response.data, ...inviteCodes]);
+      // Add new code to the list - ensure we have a valid array
+      const currentCodes = Array.isArray(inviteCodes) ? inviteCodes : [];
+      setInviteCodes([response.data, ...currentCodes]);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to generate invite code');
       console.error('Error generating invite code:', err);
+    }
+  };
+
+  const handleDeleteCode = async (inviteCode: InviteCode) => {
+    // Don't allow deletion of used codes
+    if (inviteCode.usedBy) {
+      setError("Cannot delete codes that have been used");
+      return;
+    }
+    
+    if (!window.confirm(`Are you sure you want to delete invite code ${inviteCode.code}?`)) {
+      return;
+    }
+    
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      await api.delete(`/admin/invite-codes/${inviteCode.id}`);
+      setSuccess('Invite code deleted successfully');
+      
+      // Update the list
+      setInviteCodes(inviteCodes.filter(code => code.id !== inviteCode.id));
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete invite code');
+      console.error('Error deleting invite code:', err);
     }
   };
 
@@ -63,6 +93,9 @@ const InviteCodeManagement: React.FC = () => {
         setError('Failed to copy code');
       });
   };
+
+  // Use inviteCodes?.length to safely check length
+  const hasInviteCodes = Array.isArray(inviteCodes) && inviteCodes.length > 0;
 
   return (
     <div>
@@ -144,7 +177,7 @@ const InviteCodeManagement: React.FC = () => {
             theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
           }`}></div>
         </div>
-      ) : inviteCodes.length === 0 ? (
+      ) : !hasInviteCodes ? (
         <p className={`text-center py-8 ${
           theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
         }`}>
@@ -158,7 +191,7 @@ const InviteCodeManagement: React.FC = () => {
             <thead className={`${
               theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
             }`}>
-<tr>
+              <tr>
                 <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                   theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
                 }`}>
@@ -213,43 +246,55 @@ const InviteCodeManagement: React.FC = () => {
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm`}>
                     {code.usedBy ? (
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        <span className={`px-2 py-1 rounded-full text-xs ${
                         theme === 'dark' 
-                          ? 'bg-gray-700 text-gray-300' 
-                          : 'bg-gray-200 text-gray-700'
-                      }`}>
-                        Used on {new Date(code.usedAt!).toLocaleDateString()}
-                      </span>
+                            ? 'bg-gray-700 text-gray-300' 
+                            : 'bg-gray-200 text-gray-700'
+                        }`}>
+                        Used by {code.usedByUsername || 'unknown'} on {code.usedAt ? new Date(code.usedAt).toLocaleDateString() : 'unknown date'}
+                        </span>
                     ) : code.expiresAt && new Date(code.expiresAt) < new Date() ? (
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        <span className={`px-2 py-1 rounded-full text-xs ${
                         theme === 'dark' 
-                          ? 'bg-red-900 text-red-200' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
+                            ? 'bg-red-900 text-red-200' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
                         Expired
-                      </span>
+                        </span>
                     ) : (
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        <span className={`px-2 py-1 rounded-full text-xs ${
                         theme === 'dark' 
-                          ? 'bg-green-900 text-green-200' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
+                            ? 'bg-green-900 text-green-200' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
                         Active
-                      </span>
+                        </span>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                     {!code.usedBy && (
-                      <button
-                        onClick={() => copyToClipboard(code.code)}
-                        className={`${
-                          theme === 'dark' 
-                            ? 'text-accent-dark hover:text-accent-dark/80' 
-                            : 'text-primary-dark hover:text-primary-dark/80'
-                        }`}
-                      >
-                        Copy
-                      </button>
+                      <>
+                        <button
+                          onClick={() => copyToClipboard(code.code)}
+                          className={`${
+                            theme === 'dark' 
+                              ? 'text-accent-dark hover:text-accent-dark/80' 
+                              : 'text-primary-dark hover:text-primary-dark/80'
+                          }`}
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCode(code)}
+                          className={`${
+                            theme === 'dark' 
+                              ? 'text-red-400 hover:text-red-300' 
+                              : 'text-red-600 hover:text-red-800'
+                          }`}
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

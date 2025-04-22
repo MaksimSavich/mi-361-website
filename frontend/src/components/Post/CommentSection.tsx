@@ -9,12 +9,14 @@ interface CommentSectionProps {
   postId: string;
   comments: Comment[];
   onPostUpdate?: () => void;
+  isAdmin?: boolean; // Add this prop
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({ 
   postId, 
   comments: initialComments = [],
-  onPostUpdate
+  onPostUpdate,
+  isAdmin = false // Default to false
 }) => {
   // Initialize with empty array if initialComments is undefined
   const [comments, setComments] = useState<Comment[]>(initialComments || []);
@@ -55,7 +57,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     
     setIsDeleting(true);
     try {
-      await api.delete(`/posts/comments/${commentId}`);
+      // Use admin endpoint if isAdmin is true
+      const endpoint = isAdmin 
+        ? `/admin/comments/${commentId}` 
+        : `/posts/comments/${commentId}`;
+        
+      await api.delete(endpoint);
       
       // Update comments list
       setComments(comments.filter(comment => comment.id !== commentId));
@@ -114,7 +121,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   
   // Check if user is owner of a comment
   const isCommentOwner = (comment: Comment) => {
-    return isAuthenticated && user?.id === comment.userId;
+    return isAdmin || (isAuthenticated && user?.id === comment.userId);
   };
 
   return (
