@@ -149,12 +149,12 @@ const ProfilePage: React.FC = () => {
               <div>
                 <span className="font-bold">{posts.length}</span> posts
               </div>
-              <Link to={`/users/${user.id}?tab=followers`} className="hover:underline">
-                <span className="font-bold">{followerCount}</span> followers
-              </Link>
-              <Link to={`/users/${user.id}?tab=following`} className="hover:underline">
-                <span className="font-bold">{followingCount}</span> following
-              </Link>
+              <button onClick={() => setActiveTab('followers')} className="hover:underline">
+  <span className="font-bold">{followerCount}</span> followers
+</button>
+<button onClick={() => setActiveTab('following')} className="hover:underline">
+  <span className="font-bold">{followingCount}</span> following
+</button>
             </div>
             
             <Link to="/feed" className={`inline-block px-4 py-2 rounded-full text-sm ${
