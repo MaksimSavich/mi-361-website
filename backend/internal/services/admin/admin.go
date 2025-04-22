@@ -1,4 +1,3 @@
-// backend/internal/services/admin/admin.go (new file)
 package admin
 
 import (
@@ -129,13 +128,7 @@ func (s *AdminService) GenerateInviteCode(adminID string, expiryDays int) (*mode
 func (s *AdminService) GetInviteCodes() ([]models.InviteCode, error) {
 	var invites []models.InviteCode
 	err := s.db.Select(&invites, `
-		SELECT ic.*, 
-		u_creator.username as creator_username,
-		u_user.username as user_username
-		FROM invite_codes ic
-		LEFT JOIN users u_creator ON ic.created_by = u_creator.id
-		LEFT JOIN users u_user ON ic.used_by = u_user.id
-		ORDER BY ic.created_at DESC
+		SELECT * FROM invite_codes ORDER BY created_at DESC
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get invite codes: %w", err)

@@ -55,11 +55,13 @@ const PostDetail: React.FC<PostDetailProps> = ({
     
     setIsDeleting(true);
     try {
-      await api.delete(`/posts/${currentPost.id}`);
+      // Use admin API endpoint if isAdmin flag is true
+      const endpoint = isAdmin ? `/admin/posts/${currentPost.id}` : `/posts/${currentPost.id}`;
+      await api.delete(endpoint);
       
       // Notify parent component about deletion
       if (onPostDeleted) {
-        onPostDeleted(currentPost.id);
+        onPostDeleted(currentPost.id); // Pass the post ID
       }
       
       onClose();

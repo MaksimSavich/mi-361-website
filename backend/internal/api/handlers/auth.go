@@ -109,6 +109,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Name:           name,
 		PhoneNumber:    phoneNumber,
 		ProfilePicture: profilePicture,
+		IsAdmin:        user.IsAdmin, // Make sure this line is included
 		CreatedAt:      user.CreatedAt,
 	}
 

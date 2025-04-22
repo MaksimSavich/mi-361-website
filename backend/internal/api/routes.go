@@ -83,6 +83,7 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 		// Admin routes
 		adminRoutes := api.Group("/admin")
 		adminRoutes.Use(middleware.AuthMiddleware(jwtService, db))
+		adminRoutes.Use(middleware.AdminMiddleware(db)) // Add this line if it's missing
 		{
 			// Invite code management
 			adminRoutes.POST("/invite-codes", adminHandler.GenerateInviteCode)
@@ -96,6 +97,7 @@ func SetupRouter(db *sqlx.DB, s3Client *storage.S3Client, config *configs.Config
 			adminRoutes.DELETE("/posts/:id", adminHandler.DeletePost)
 			adminRoutes.DELETE("/comments/:id", adminHandler.DeleteComment)
 		}
+
 	}
 
 	return router

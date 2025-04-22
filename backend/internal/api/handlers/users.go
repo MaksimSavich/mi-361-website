@@ -65,6 +65,7 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		Name:           name,
 		PhoneNumber:    phoneNumber,
 		ProfilePicture: profilePicture,
+		IsAdmin:        user.IsAdmin,
 		CreatedAt:      user.CreatedAt,
 	}
 

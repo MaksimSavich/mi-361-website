@@ -34,12 +34,12 @@ const ContentModeration: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
       return;
     }
-
+  
     setError(null);
     setSuccess(null);
     
     try {
-      await api.delete(`/admin/posts/${postId}`);
+      await api.delete(`/admin/posts/${postId}`); // Make sure this is using the admin endpoint
       setSuccess('Post deleted successfully');
       
       // Remove post from list
