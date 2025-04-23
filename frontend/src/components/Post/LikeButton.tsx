@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthContext';
-import { likePost, unlikePost } from '../../services/posts';
+import { likePost, unlikePost, getLikeStatus } from '../../services/posts';
 import { useTheme } from '../../context/ThemeContext';
 
 interface LikeButtonProps {
@@ -14,19 +14,44 @@ interface LikeButtonProps {
 }
 
 const LikeButton: React.FC<LikeButtonProps> = ({
-  postId,
-  likes: initialLikes,
-  liked: initialLiked = false,
-  onLike,
-  size = 'md',
-  showCount = true,
-  className = '',
-}) => {
-  const [likes, setLikes] = useState(initialLikes);
-  const [liked, setLiked] = useState(initialLiked);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const { isAuthenticated } = useAuth();
-  const { theme } = useTheme();
+    postId,
+    likes: initialLikes,
+    liked: initialLiked = false,
+    onLike,
+    size = 'md',
+    showCount = true,
+    className = '',
+  }) => {
+    const [likes, setLikes] = useState(initialLikes);
+    const [liked, setLiked] = useState(initialLiked);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const { isAuthenticated } = useAuth();
+    const { theme } = useTheme();
+
+     useEffect(() => {
+    setLikes(initialLikes);
+    setLiked(initialLiked);
+  }, [initialLikes, initialLiked]);
+
+  // Verify like status on mount
+  useEffect(() => {
+    const verifyLikeStatus = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const status = await getLikeStatus(postId);
+        // Only update if different to avoid circular updates
+        if (status.liked !== liked) {
+          setLiked(status.liked);
+          setLikes(status.likes);
+        }
+      } catch (error) {
+        console.error('Failed to verify like status:', error);
+      }
+    };
+    
+    verifyLikeStatus();
+  }, [postId, isAuthenticated]);
 
   // Handle like/unlike action
   const handleLikeToggle = async (e: React.MouseEvent) => {
@@ -34,7 +59,6 @@ const LikeButton: React.FC<LikeButtonProps> = ({
     
     if (!isAuthenticated) {
       // If not authenticated, prompt user to log in
-      // This could open a modal or redirect to login page
       alert('Please log in to like posts');
       return;
     }

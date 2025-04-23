@@ -72,16 +72,25 @@ const HomePage: React.FC = () => {
   
   // Handle post updates (including likes)
   const handlePostUpdated = (updatedPost: Post) => {
-    // Update the post in both lists if it exists there
-    setPosts(posts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
+    // Update the post in both arrays (if it exists there)
+    setPosts(prevPosts => prevPosts.map(post => 
+      post.id === updatedPost.id ? {
+        ...post,
+        likes: updatedPost.likes,
+        liked: updatedPost.liked
+      } : post
     ));
     
-    setFollowingPosts(followingPosts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
+    // Also update following posts
+    setFollowingPosts(prevPosts => prevPosts.map(post => 
+      post.id === updatedPost.id ? {
+        ...post,
+        likes: updatedPost.likes,
+        liked: updatedPost.liked
+      } : post
     ));
     
-    // If this is the currently selected post, update it too
+    // Update selected post if it's currently being viewed
     if (selectedPost && selectedPost.id === updatedPost.id) {
       setSelectedPost(updatedPost);
     }

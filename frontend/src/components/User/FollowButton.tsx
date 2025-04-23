@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { followUser, unfollowUser } from '../../services/users';
+import { followUser, unfollowUser, getFollowStatus } from '../../services/users';
 
 interface FollowButtonProps {
   userId: string;
@@ -18,6 +18,28 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [loading, setLoading] = useState(false);
   const { theme } = useTheme();
+
+  // Important: Update when props change
+  useEffect(() => {
+    setIsFollowing(initialIsFollowing);
+  }, [initialIsFollowing]);
+
+  // Verify follow status on mount
+  useEffect(() => {
+    const verifyFollowStatus = async () => {
+      try {
+        const status = await getFollowStatus(userId);
+        // Only update if different to avoid circular updates
+        if (status.isFollowing !== isFollowing) {
+          setIsFollowing(status.isFollowing);
+        }
+      } catch (error) {
+        console.error('Failed to verify follow status:', error);
+      }
+    };
+    
+    verifyFollowStatus();
+  }, [userId]);
 
   const handleToggleFollow = async () => {
     setLoading(true);

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../components/Auth/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { getUserProfile, followUser, unfollowUser, getFollowers, getFollowing } from '../services/users';
+import { getUserProfile, followUser, unfollowUser, getFollowers, getFollowing, getFollowStatus } from '../services/users';
 import { UserWithFollowCount } from '../types/User';
 import { Post } from '../types/Post';
 import PostCard from '../components/Post/PostCard';
@@ -53,6 +53,16 @@ const UserProfilePage: React.FC = () => {
         const userData = await getUserProfile(id);
         setUser(userData);
         
+        // Important: Also check the follow status explicitly
+        if (isAuthenticated) {
+          const followStatus = await getFollowStatus(id);
+          // Update user with explicit follow status
+          setUser(prevUser => prevUser ? {
+            ...prevUser,
+            isFollowing: followStatus.isFollowing
+          } : null);
+        }
+        
         // Fetch user's posts
         const response = await api.get(`/users/${id}/posts`);
         setPosts(response.data || []);
@@ -65,7 +75,7 @@ const UserProfilePage: React.FC = () => {
     };
     
     fetchUserProfile();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   // Load followers or following when tab changes
   useEffect(() => {
