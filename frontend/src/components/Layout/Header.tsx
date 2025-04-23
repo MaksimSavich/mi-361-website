@@ -1,3 +1,4 @@
+// frontend/src/components/Layout/Header.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../Auth/AuthContext';
@@ -32,22 +33,6 @@ const Header: React.FC = () => {
           }`}>
             Spartan Net
           </Link>
-          
-          {/* Add feed link for authenticated users */}
-          {isAuthenticated && (
-            <div className="ml-6 hidden md:flex space-x-4">
-              <Link to="/feed" className={`${
-                theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-white hover:text-gray-200'
-              }`}>
-                Following
-              </Link>
-              <Link to="/profile" className={`${
-                theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-white hover:text-gray-200'
-              }`}>
-                Profile
-              </Link>
-            </div>
-          )}
         </div>
         
         {/* Search component - visible on larger screens */}
@@ -93,22 +78,145 @@ const Header: React.FC = () => {
           </button>
           
           {isAuthenticated && (
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className={`${
-                theme === 'dark'
-                  ? 'text-gray-300 hover:text-white'
-                  : 'text-gray-800 hover:text-black'
-              }`}
-              aria-label="Upload"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-            </button>
+            <>
+              {/* Following feed button */}
+              <Link 
+                to="/feed"
+                className={`${
+                  theme === 'dark'
+                    ? 'text-gray-300 hover:text-white'
+                    : 'text-white hover:text-gray-200'
+                }`}
+                aria-label="Following Feed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+              </Link>
+              
+              {/* Upload button */}
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className={`${
+                  theme === 'dark'
+                    ? 'text-gray-300 hover:text-white'
+                    : 'text-white hover:text-gray-200'
+                }`}
+                aria-label="Upload"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </button>
+            </>
           )}
           
-          {/* Rest of the header code remains the same */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center focus:outline-none"
+              aria-label="User menu"
+            >
+              {isAuthenticated ? (
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-secondary-light'
+                }`}>
+                  {user?.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={user.username}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className={`text-sm font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`}>
+                      {user?.username.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-white'
+                }`}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+              )}
+            </button>
+            
+            {showUserMenu && (
+              <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-50 border ${
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700'
+                  : 'bg-white border-gray-200'
+              }`}>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/profile"
+                      className={`block px-4 py-2 text-sm ${
+                        theme === 'dark'
+                          ? 'text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Profile
+                    </Link>
+
+                    {user && user.isAdmin && (
+                      <Link
+                        to="/admin"
+                        className={`block px-4 py-2 text-sm ${
+                          theme === 'dark'
+                            ? 'text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className={`block w-full text-left px-4 py-2 text-sm ${
+                        theme === 'dark'
+                          ? 'text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      Log out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className={`block px-4 py-2 text-sm ${
+                        theme === 'dark'
+                          ? 'text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      to="/register"
+                      className={`block px-4 py-2 text-sm ${
+                        theme === 'dark'
+                          ? 'text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
@@ -119,7 +227,7 @@ const Header: React.FC = () => {
         </div>
       )}
       
-      {/* Mobile navigation menu for authenticated users */}
+      {/* Mobile navigation for authenticated users */}
       {isAuthenticated && showSearch && (
         <div className="md:hidden px-4 py-2 border-t border-gray-700 flex justify-around">
           <Link 
