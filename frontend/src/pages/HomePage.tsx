@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Post } from '../types/Post';
 import PostCard from '../components/Post/PostCard';
 import PostDetail from '../components/Post/PostDetail';
@@ -18,12 +19,22 @@ const HomePage: React.FC = () => {
   const [followingError, setFollowingError] = useState<string | null>(null);
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         const response = await api.get('/posts');
         setPosts(response.data || []);  // Provide empty array fallback
+        
+        // Check if we need to open a specific post
+        const postId = searchParams.get('postId');
+        if (postId) {
+          const post = response.data.find((p: Post) => p.id === postId);
+          if (post) {
+            setSelectedPost(post);
+          }
+        }
       } catch (err) {
         setError('Failed to fetch posts. Please try again later.');
         console.error('Error fetching posts:', err);
@@ -33,7 +44,7 @@ const HomePage: React.FC = () => {
     };
 
     fetchPosts();
-  }, []);
+  }, [searchParams]);
 
   // Fetch following posts when authenticated user selects the following tab
   useEffect(() => {
@@ -45,6 +56,15 @@ const HomePage: React.FC = () => {
         try {
           const data = await getFollowingFeed();
           setFollowingPosts(data);
+          
+          // Check if we need to open a specific post in the following tab
+          const postId = searchParams.get('postId');
+          if (postId) {
+            const post = data.find((p: Post) => p.id === postId);
+            if (post) {
+              setSelectedPost(post);
+            }
+          }
         } catch (err) {
           setFollowingError('Failed to fetch following feed.');
           console.error('Error fetching following feed:', err);
@@ -55,7 +75,26 @@ const HomePage: React.FC = () => {
       
       fetchFollowingPosts();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, searchParams]);
+
+  // If postId is in URL but not found in current tab, try to fetch specific post
+  useEffect(() => {
+    const fetchSinglePost = async () => {
+      const postId = searchParams.get('postId');
+      if (!postId || selectedPost) return;
+      
+      try {
+        const response = await api.get(`/posts/${postId}`);
+        if (response.data) {
+          setSelectedPost(response.data);
+        }
+      } catch (err) {
+        console.error('Error fetching specific post:', err);
+      }
+    };
+    
+    fetchSinglePost();
+  }, [searchParams, selectedPost]);
 
   // Find the full post details when a post card is clicked
   const findPostById = (postId: string) => {
@@ -100,6 +139,23 @@ const HomePage: React.FC = () => {
   const currentPosts = activeTab === 'all' ? (posts || []) : (followingPosts || []);
   const currentLoading = activeTab === 'all' ? loading : followingLoading;
   const currentError = activeTab === 'all' ? error : followingError;
+
+  // Handle closing the post detail and updating URL
+  const handleClosePostDetail = () => {
+    // Create a new URLSearchParams without the postId parameter
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('postId');
+    
+    // Update the URL without the postId parameter
+    window.history.pushState(
+      {}, 
+      '', 
+      `${window.location.pathname}${newSearchParams.toString() ? `?${newSearchParams.toString()}` : ''}`
+    );
+    
+    // Close the modal
+    setSelectedPost(null);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -204,7 +260,7 @@ const HomePage: React.FC = () => {
       {selectedPost && (
         <PostDetail
           post={selectedPost}
-          onClose={() => setSelectedPost(null)}
+          onClose={handleClosePostDetail}
           onPostDeleted={() => handlePostDeleted(selectedPost.id)}
           onPostUpdated={handlePostUpdated}
         />

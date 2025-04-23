@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { Comment } from '../../types/Comment';
@@ -14,6 +15,7 @@ const CommentModeration: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { theme } = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAllComments();
@@ -51,6 +53,12 @@ const CommentModeration: React.FC = () => {
       setError(err.response?.data?.error || 'Failed to delete comment');
       console.error('Error deleting comment:', err);
     }
+  };
+
+  // Navigate to post view
+  const handlePostClick = (postId: string) => {
+    // We'll open the post in a regular post detail view
+    navigate(`/?postId=${postId}`);
   };
 
   // Use comments?.length to safely check length
@@ -154,18 +162,14 @@ const CommentModeration: React.FC = () => {
                   <td className={`px-6 py-4 whitespace-nowrap ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
                   }`}>
-                    <a 
-                      href={`#/post/${comment.postId}`}
+                    <button 
+                      onClick={() => handlePostClick(comment.postId)}
                       className={`hover:underline ${
                         theme === 'dark' ? 'text-accent-dark' : 'text-primary-dark'
                       }`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        // TODO: Implement post view navigation
-                      }}
                     >
                       {comment.postTitle || `Post ${comment.postId.substring(0, 8)}...`}
-                    </a>
+                    </button>
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-500'

@@ -1,4 +1,3 @@
-// frontend/src/pages/UserProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../components/Auth/AuthContext';
@@ -69,6 +68,7 @@ const UserProfilePage: React.FC = () => {
       } catch (err) {
         console.error('Failed to fetch user profile:', err);
         setError('Failed to load user profile');
+        setPosts([]);
       } finally {
         setLoading(false);
       }
@@ -86,13 +86,18 @@ const UserProfilePage: React.FC = () => {
       try {
         if (activeTab === 'followers') {
           const data = await getFollowers(id);
-          setFollowers(data);
+          setFollowers(data || []);
         } else if (activeTab === 'following') {
           const data = await getFollowing(id);
-          setFollowing(data);
+          setFollowing(data || []);
         }
       } catch (err) {
         console.error(`Failed to fetch ${activeTab}:`, err);
+        if (activeTab === 'followers') {
+          setFollowers([]);
+        } else {
+          setFollowing([]);
+        }
       } finally {
         setTabLoading(false);
       }
@@ -323,7 +328,7 @@ const UserProfilePage: React.FC = () => {
                 theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
               }`}></div>
             </div>
-          ) : followers.length === 0 ? (
+          ) : (followers || []).length === 0 ? (
             <div className={`text-center py-8 ${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
             }`}>
@@ -418,7 +423,7 @@ const UserProfilePage: React.FC = () => {
                 theme === 'dark' ? 'border-accent-dark' : 'border-primary-light'
               }`}></div>
             </div>
-          ) : following.length === 0 ? (
+          ) : (following || []).length === 0 ? (
             <div className={`text-center py-8 ${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
             }`}>

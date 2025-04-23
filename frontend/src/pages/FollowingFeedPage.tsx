@@ -1,4 +1,3 @@
-// frontend/src/pages/FollowingFeedPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/Auth/AuthContext';
@@ -35,10 +34,11 @@ const FollowingFeedPage: React.FC = () => {
       
       try {
         const feedPosts = await getFollowingFeed();
-        setPosts(feedPosts);
+        setPosts(feedPosts || []); // Add fallback to empty array
       } catch (err) {
         console.error('Failed to fetch following feed:', err);
         setError('Failed to load feed');
+        setPosts([]); // Initialize with empty array on error
       } finally {
         setLoading(false);
       }
