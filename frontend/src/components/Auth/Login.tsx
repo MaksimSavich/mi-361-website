@@ -53,7 +53,7 @@ const Login: React.FC = () => {
           ? 'bg-gray-800 text-white' 
           : 'bg-white text-gray-800'
       }`}>
-        <h1 className="text-2xl font-bold mb-6 text-center">Log in to PhotoShare</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Log in to Spartan Net</h1>
         
         {message && (
           <div className={`border px-4 py-3 rounded mb-4 ${

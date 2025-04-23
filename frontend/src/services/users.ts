@@ -5,8 +5,15 @@ import { User, UserWithFollowCount } from '../types/User';
 export const searchUsers = async (query: string): Promise<UserWithFollowCount[]> => {
   if (!query.trim()) return [];
   
-  const response = await api.get<UserWithFollowCount[]>(`/users/search?q=${encodeURIComponent(query)}`);
-  return response.data;
+  try {
+    const response = await api.get<UserWithFollowCount[]>(`/users/search?q=${encodeURIComponent(query)}`);
+    // Ensure we return an empty array if the response is null or undefined
+    return response.data || [];
+  } catch (error) {
+    console.error('Search users API error:', error);
+    // Return empty array on error
+    return [];
+  }
 };
 
 // Get user profile
@@ -35,20 +42,35 @@ export const getFollowStatus = async (userId: string): Promise<{ isFollowing: bo
 
 // Get followers
 export const getFollowers = async (userId: string): Promise<UserWithFollowCount[]> => {
-  const response = await api.get<UserWithFollowCount[]>(`/follow/${userId}/followers`);
-  return response.data;
+  try {
+    const response = await api.get<UserWithFollowCount[]>(`/follow/${userId}/followers`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Get followers API error:', error);
+    return [];
+  }
 };
 
 // Get following
 export const getFollowing = async (userId: string): Promise<UserWithFollowCount[]> => {
-  const response = await api.get<UserWithFollowCount[]>(`/follow/${userId}/following`);
-  return response.data;
+  try {
+    const response = await api.get<UserWithFollowCount[]>(`/follow/${userId}/following`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Get following API error:', error);
+    return [];
+  }
 };
 
 // Get following feed
 export const getFollowingFeed = async (): Promise<any[]> => {
-  const response = await api.get('/follow/feed');
-  return response.data;
+  try {
+    const response = await api.get('/follow/feed');
+    return response.data || [];
+  } catch (error) {
+    console.error('Get following feed API error:', error);
+    return [];
+  }
 };
 
 export default {

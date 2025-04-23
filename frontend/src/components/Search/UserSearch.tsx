@@ -58,10 +58,13 @@ const UserSearch: React.FC<UserSearchProps> = ({ onClose }) => {
 
       try {
         const data = await searchUsers(debouncedQuery);
-        setResults(data);
+        // Ensure we always have an array, even if the API returns null
+        setResults(data || []);
       } catch (err) {
         console.error('Error searching users:', err);
         setError('Failed to search users');
+        // Make sure we set an empty array if there's an error
+        setResults([]);
       } finally {
         setLoading(false);
       }
