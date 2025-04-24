@@ -252,7 +252,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		}
 	} else {
 		// Compress and possibly convert the image
-		compressedData, err := CompressImage(fileData, contentType)
+		compressedData, err := compression.CompressImage(fileData, contentType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image: " + err.Error()})
 			return
