@@ -129,8 +129,6 @@ func (h *PostHandler) GetPost(c *gin.Context) {
 	c.JSON(http.StatusOK, post)
 }
 
-// CreatePost creates a new post
-// CreatePost creates a new post
 func (h *PostHandler) CreatePost(c *gin.Context) {
 	// Get user ID from context
 	userID, exists := c.Get("userID")
@@ -163,16 +161,44 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
-	// Determine content type
+	// Determine content type and handle iOS specific formats
 	contentType := file.Header.Get("Content-Type")
+
+	// If content type is missing or generic, try to detect from file extension
+	if contentType == "" || contentType == "application/octet-stream" {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		switch ext {
+		case ".jpg", ".jpeg":
+			contentType = "image/jpeg"
+		case ".png":
+			contentType = "image/png"
+		case ".webp":
+			contentType = "image/webp"
+		case ".heic", ".heif":
+			contentType = "image/heic"
+		case ".mp4":
+			contentType = "video/mp4"
+		case ".webm":
+			contentType = "video/webm"
+		case ".mov":
+			contentType = "video/quicktime"
+		}
+	}
+
+	// Determine media type (image or video)
 	mediaType := "image"
-	if contentType == "video/mp4" || contentType == "video/webm" {
+	if strings.HasPrefix(contentType, "video/") {
 		mediaType = "video"
 
-		// Check video compatibility
-		if !compression.CheckVideoCompatibility(fileData, contentType) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Video format not supported by web browsers. Please use MP4 (H.264) or WebM format."})
-			return
+		// Handle iOS video formats like MOV
+		if contentType == "video/quicktime" || contentType == "video/mov" || !compression.CheckVideoCompatibility(fileData, contentType) {
+			// Convert to MP4
+			var convertError error
+			fileData, contentType, convertError = compression.CompressVideo(fileData, contentType)
+			if convertError != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to convert video format. Please use MP4 or WebM."})
+				return
+			}
 		}
 
 		// Create temporary directory for processing
@@ -224,19 +250,15 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 				}
 			}
 		}
-	}
-
-	// Compress file if needed
-	if mediaType == "image" {
-		fileData, err = compression.CompressImage(fileData, contentType)
+	} else {
+		// Compress and possibly convert the image
+		compressedData, err := CompressImage(fileData, contentType)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to compress image"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process image: " + err.Error()})
 			return
 		}
-	} else if mediaType == "video" {
-		// For simplicity, we're not implementing video compression in this example
-		// In a real application, you'd want to use FFmpeg or similar tools
-		// fileData, err = compression.CompressVideo(fileData, contentType)
+		fileData = compressedData
+		contentType = "image/jpeg" // CompressImage now always returns JPEG
 	}
 
 	// Upload to S3

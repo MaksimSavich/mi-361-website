@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -93,4 +94,34 @@ func main() {
 	}
 
 	log.Println("Server exiting")
+}
+
+func checkDependencies() {
+	log.Println("Checking required dependencies...")
+
+	// Check for FFmpeg
+	ffmpegCmd := exec.Command("ffmpeg", "-version")
+	if err := ffmpegCmd.Run(); err != nil {
+		log.Println("Warning: FFmpeg not found. Video and HEIC conversion may not work properly.")
+		log.Println("Please install FFmpeg: https://ffmpeg.org/download.html")
+	} else {
+		log.Println("✓ FFmpeg found")
+	}
+
+	// Check for ImageMagick
+	convertCmd := exec.Command("convert", "-version")
+	if err := convertCmd.Run(); err != nil {
+		log.Println("Warning: ImageMagick not found. HEIC conversion may use fallback methods.")
+		log.Println("For best results, please install ImageMagick: https://imagemagick.org/script/download.php")
+	} else {
+		log.Println("✓ ImageMagick found")
+	}
+
+	// Check for libheif tools
+	heifCmd := exec.Command("heif-convert", "--version")
+	if err := heifCmd.Run(); err != nil {
+		log.Println("Info: libheif-tools not found. Alternative HEIC conversion methods will be used.")
+	} else {
+		log.Println("✓ libheif-tools found")
+	}
 }

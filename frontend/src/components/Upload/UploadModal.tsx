@@ -172,9 +172,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose }) => {
                 <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                   Or click to select from your device
                 </p>
-                <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Supported video formats: MP4, WebM
-                </p>
+                <p className={`text-xs mt-2 ${
+                    theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    All common photo and video formats supported, including iPhone HEIC and MOV files
+                  </p>
                 <input 
                   type="file" 
                   ref={fileInputRef}
