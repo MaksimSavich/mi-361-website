@@ -43,6 +43,19 @@ const PostDetail: React.FC<PostDetailProps> = ({
     setEditCaption(post.caption);
   }, [post]);
 
+  useEffect(() => {
+    const fetchPostDetails = async () => {
+      try {
+        const response = await api.get(`/posts/${post.id}`);
+        setCurrentPost(response.data);
+      } catch (error) {
+        console.error('Failed to fetch complete post details:', error);
+      }
+    };
+    
+    fetchPostDetails();
+  }, [post.id]);
+
   // Ensure post.comments exists, defaulting to empty array if undefined
   const comments = currentPost.comments || [];
   

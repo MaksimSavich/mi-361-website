@@ -40,12 +40,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         content: newComment,
       });
       
-      setComments([...comments, response.data]);
+      // Update local comments state
+      const updatedComments = [...comments, response.data];
+      setComments(updatedComments);
       setNewComment('');
       
-      // Notify parent component if needed
-      if (onPostUpdate) {
-        onPostUpdate();
+      // After adding a comment, fetch the complete post to ensure we have the latest data
+      try {
+        const postResponse = await api.get(`/posts/${postId}`);
+        
+        // Notify parent component with the updated post data
+        if (onPostUpdate) {
+          onPostUpdate();
+        }
+      } catch (err) {
+        console.error('Failed to fetch updated post after comment:', err);
       }
     } catch (error) {
       console.error('Failed to post comment:', error);
