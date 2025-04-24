@@ -142,7 +142,7 @@ func (s *S3Client) DeleteFile(ctx context.Context, s3Path string) error {
 	// Log the deletion attempt for debugging
 	log.Printf("Attempting to delete file from S3: bucket=%s, key=%s", s.bucket, s3Path)
 
-	// Check if path contains full URL (common mistake)
+	// If s3Path is a full URL, extract just the path component
 	if strings.HasPrefix(s3Path, "http://") || strings.HasPrefix(s3Path, "https://") {
 		parsedURL, err := url.Parse(s3Path)
 		if err != nil {
@@ -150,28 +150,33 @@ func (s *S3Client) DeleteFile(ctx context.Context, s3Path string) error {
 		}
 
 		// Extract path from URL
-		s3Path = parsedURL.Path
-		if strings.HasPrefix(s3Path, "/") {
-			s3Path = s3Path[1:]
+		path := parsedURL.Path
+		if strings.HasPrefix(path, "/") {
+			path = path[1:] // Remove leading slash
 		}
 
-		// If path still contains bucket name, remove it
-		if strings.HasPrefix(s3Path, s.bucket+"/") {
-			s3Path = strings.TrimPrefix(s3Path, s.bucket+"/")
+		// Check if path contains bucket name as prefix
+		if strings.HasPrefix(path, s.bucket+"/") {
+			path = strings.TrimPrefix(path, s.bucket+"/")
+			s3Path = path
+		} else {
+			s3Path = path
 		}
 	}
 
-	// For videos, make sure we have the correct folder prefix
-	if strings.HasSuffix(s3Path, ".mp4") || strings.HasSuffix(s3Path, ".webm") {
-		// If the path doesn't already have a videos/ prefix, add it
-		if !strings.HasPrefix(s3Path, "videos/") {
-			s3Path = "videos/" + s3Path
-		}
-	} else if strings.HasSuffix(s3Path, ".jpg") || strings.HasSuffix(s3Path, ".jpeg") ||
-		strings.HasSuffix(s3Path, ".png") || strings.HasSuffix(s3Path, ".gif") {
-		// For images, add the images/ prefix if not present
-		if !strings.HasPrefix(s3Path, "images/") {
+	// Check if we're missing the folder prefix for media files
+	if !strings.HasPrefix(s3Path, "images/") &&
+		!strings.HasPrefix(s3Path, "videos/") &&
+		!strings.HasPrefix(s3Path, "files/") {
+
+		// Check file extension to determine folder
+		ext := strings.ToLower(filepath.Ext(s3Path))
+		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" {
 			s3Path = "images/" + s3Path
+		} else if ext == ".mp4" || ext == ".webm" || ext == ".mov" {
+			s3Path = "videos/" + s3Path
+		} else {
+			s3Path = "files/" + s3Path
 		}
 	}
 

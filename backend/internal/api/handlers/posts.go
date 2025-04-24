@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -319,22 +319,14 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	postID := c.Param("id")
 
 	// Check if post exists and belongs to user
-	var postExists bool
-	err := h.db.Get(&postExists, "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND user_id = $2)", postID, userID)
+	var post models.Post
+	err := h.db.Get(&post, "SELECT * FROM posts WHERE id = $1 AND user_id = $2", postID, userID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post not found or you don't have permission to delete it"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if !postExists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found or you don't have permission to delete it"})
-		return
-	}
-
-	// Get media URL for deletion from S3
-	var mediaURL string
-	err = h.db.Get(&mediaURL, "SELECT media_url FROM posts WHERE id = $1", postID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get media URL"})
 		return
 	}
 
@@ -353,6 +345,13 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
+	// Delete post likes
+	_, err = tx.Exec("DELETE FROM post_likes WHERE post_id = $1", postID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete post likes"})
+		return
+	}
+
 	// Delete post
 	_, err = tx.Exec("DELETE FROM posts WHERE id = $1", postID)
 	if err != nil {
@@ -366,40 +365,15 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
-	// Delete media from S3
-	// Parse the URL to extract the S3 object key
-	var s3Path string
-	parsedURL, err := url.Parse(mediaURL)
-	if err == nil {
-		// Extract path from the URL (removing the leading slash if present)
-		path := parsedURL.Path
-		if strings.HasPrefix(path, "/") {
-			path = path[1:]
-		}
-
-		// If the URL contains bucket name in the path (like s3.amazonaws.com/bucket-name/path)
-		if strings.Contains(parsedURL.Host, "s3.amazonaws.com") {
-			parts := strings.SplitN(path, "/", 2)
-			if len(parts) > 1 {
-				s3Path = parts[1] // Skip the bucket name in the path
-			} else {
-				s3Path = path
-			}
-		} else {
-			// For custom endpoints or path-style URLs
-			s3Path = path
-		}
-
-		// Try to delete the file
-		err = h.s3Client.DeleteFile(c.Request.Context(), s3Path)
+	// Delete media from S3 after the database transaction is complete
+	if post.MediaURL != "" {
+		err = h.s3Client.DeleteFile(c.Request.Context(), post.MediaURL)
 		if err != nil {
-			// Log the error but continue (don't fail the API call just because S3 deletion failed)
-			log.Printf("Failed to delete file from S3: %v, path: %s", err, s3Path)
+			// Log error but don't fail the request
+			log.Printf("Warning: Failed to delete file from S3: %v, URL: %s", err, post.MediaURL)
 		} else {
-			log.Printf("Successfully deleted file from S3: %s", s3Path)
+			log.Printf("Successfully deleted file from S3 for post %s", postID)
 		}
-	} else {
-		log.Printf("Failed to parse media URL for S3 deletion: %v, URL: %s", err, mediaURL)
 	}
 
 	// Return success
