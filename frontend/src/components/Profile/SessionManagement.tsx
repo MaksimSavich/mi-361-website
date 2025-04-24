@@ -116,7 +116,7 @@ const SessionManagement: React.FC = () => {
           No active sessions found
         </p>
       ) : (
-        <div className={`rounded-lg shadow overflow-hidden ${
+        <div className={`rounded-lg shadow overflow-hidden overflow-x-auto ${
           theme === 'dark' ? 'bg-gray-800' : 'bg-white'
         }`}>
           <table className="min-w-full divide-y divide-gray-200">
